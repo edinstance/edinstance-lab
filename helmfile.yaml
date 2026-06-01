@@ -20,6 +20,8 @@ releases:
     namespace: kube-system
     chart: metrics-server/metrics-server
     version: 3.13.0
+    needs:
+      - kube-system/cilium
     values:
       - kubernetes/addons/metrics-server/values.yml
 
@@ -28,6 +30,8 @@ releases:
     chart: metallb/metallb
     version: 0.16.1
     createNamespace: true
+    needs:
+      - kube-system/cilium
     values:
       - kubernetes/addons/metallb/values.yml
 
@@ -36,6 +40,8 @@ releases:
     chart: oci://docker.io/envoyproxy/gateway-helm
     version: v1.8.0
     createNamespace: true
+    needs:
+      - metallb-system/metallb
     values:
       - kubernetes/addons/envoy-gateway/values.yml
 
@@ -44,6 +50,8 @@ releases:
     chart: longhorn/longhorn
     version: 1.11.2
     createNamespace: true
+    needs:
+      - kube-system/cilium
     values:
       - kubernetes/addons/longhorn/values.yml
 
@@ -52,5 +60,7 @@ releases:
     chart: oci://quay.io/jetstack/charts/cert-manager
     version: v1.20.2
     createNamespace: true
+    needs:
+      - kube-system/cilium
     values:
       - kubernetes/addons/cert-manager/values.yml

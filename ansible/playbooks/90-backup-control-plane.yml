@@ -8,6 +8,7 @@
     remote_backup_dir: "/var/backups/kubernetes"
     local_backup_dir: "{{ playbook_dir }}/../../backups/{{ backup_timestamp }}"
     remote_file_archive: "{{ remote_backup_dir }}/{{ inventory_hostname }}-control-plane-files-{{ backup_timestamp }}.tar.gz"
+    retention_days: 14
 
   tasks:
     - name: Generate a single shared backup timestamp
@@ -27,6 +28,20 @@
         path: "{{ remote_backup_dir }}"
         state: directory
         mode: "0700"
+
+    - name: Find old remote file backups
+      ansible.builtin.find:
+        paths: "{{ remote_backup_dir }}"
+        patterns:
+          - "{{ inventory_hostname }}-control-plane-files-*.tar.gz"
+        age: "{{ retention_days }}d"
+      register: old_remote_file_backups
+
+    - name: Prune old remote file backups
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ old_remote_file_backups.files }}"
 
     - name: Check Kubernetes paths
       ansible.builtin.stat:
@@ -60,6 +75,25 @@
       delegate_to: localhost
       become: false
 
+    - name: Find old local file backups
+      ansible.builtin.find:
+        paths: "{{ playbook_dir }}/../../backups"
+        patterns:
+          - "{{ inventory_hostname }}-control-plane-files-*.tar.gz"
+        recurse: true
+        age: "{{ retention_days }}d"
+      register: old_local_file_backups
+      delegate_to: localhost
+      become: false
+
+    - name: Prune old local file backups
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ old_local_file_backups.files }}"
+      delegate_to: localhost
+      become: false
+
     - name: Fetch control-plane file archive
       ansible.builtin.fetch:
         src: "{{ remote_file_archive }}"
@@ -77,8 +111,29 @@
     remote_backup_dir: "/var/backups/kubernetes"
     local_backup_dir: "{{ playbook_dir }}/../../backups/{{ backup_timestamp }}"
     remote_etcd_snapshot: "{{ remote_backup_dir }}/{{ inventory_hostname }}-etcd-snapshot-{{ backup_timestamp }}.db"
+    retention_days: 14
 
   tasks:
+    - name: Create remote backup directory
+      ansible.builtin.file:
+        path: "{{ remote_backup_dir }}"
+        state: directory
+        mode: "0700"
+
+    - name: Find old remote etcd snapshots
+      ansible.builtin.find:
+        paths: "{{ remote_backup_dir }}"
+        patterns:
+          - "{{ inventory_hostname }}-etcd-snapshot-*.db"
+        age: "{{ retention_days }}d"
+      register: old_remote_etcd_snapshots
+
+    - name: Prune old remote etcd snapshots
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ old_remote_etcd_snapshots.files }}"
+
     - name: Check etcdctl
       ansible.builtin.command:
         cmd: which etcdctl
@@ -122,6 +177,25 @@
         path: "{{ local_backup_dir }}"
         state: directory
         mode: "0700"
+      delegate_to: localhost
+      become: false
+
+    - name: Find old local etcd snapshots
+      ansible.builtin.find:
+        paths: "{{ playbook_dir }}/../../backups"
+        patterns:
+          - "{{ inventory_hostname }}-etcd-snapshot-*.db"
+        recurse: true
+        age: "{{ retention_days }}d"
+      register: old_local_etcd_snapshots
+      delegate_to: localhost
+      become: false
+
+    - name: Prune old local etcd snapshots
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ old_local_etcd_snapshots.files }}"
       delegate_to: localhost
       become: false
 

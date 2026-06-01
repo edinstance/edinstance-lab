@@ -27,9 +27,16 @@
         path: /etc/containerd/config.toml
         regexp: 'SystemdCgroup = false'
         replace: 'SystemdCgroup = true'
+      notify: Restart containerd
 
-    - name: Enable and restart containerd
+    - name: Enable and start containerd
       ansible.builtin.systemd:
         name: containerd
         enabled: true
+        state: started
+
+  handlers:
+    - name: Restart containerd
+      ansible.builtin.systemd:
+        name: containerd
         state: restarted

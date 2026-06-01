@@ -12,9 +12,13 @@ spec:
     - Egress
   ingress:
     - from:
+        # Gateway Namespace mode may need the Gateway resource namespace label here.
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: gateway-system
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: envoy-gateway-system
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: cloudflare-tunnel

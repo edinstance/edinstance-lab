@@ -65,8 +65,8 @@ brew install helmfile
 Pinned versions currently used by this repo:
 
 ```text
-Kubernetes packages: 1.30.14-1.1
-Kubernetes cluster version: v1.30.14
+Kubernetes packages: 1.36.1-1.1
+Kubernetes cluster version: v1.36.1
 kube-vip: v0.8.2
 Cilium chart: 1.19.4
 metrics-server chart: 3.13.0

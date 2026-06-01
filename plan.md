@@ -1,3 +1,7 @@
+> Historical draft: the committed playbooks and manifests are authoritative.
+> Trust `ansible/group_vars/all.yml`, `ansible/playbooks/02-kubernetes-packages.yml`,
+> and `kubernetes/bootstrap/kubeadm-config.yml` when this file differs.
+
 Great. Assuming your Ubiquiti network is now set up with reserved/static IPs for the nodes and DHCP no longer overlaps with the Kubernetes VIP/MetalLB range, the next steps are:
 
 ```text
@@ -25,13 +29,13 @@ Below is the practical path.
 I will assume you used this plan:
 
 ```text
-k8s-1:              192.168.1.21
-k8s-2:              192.168.1.22
-k8s-3:              192.168.1.23
+k8s-1:              192.168.2.10
+k8s-2:              192.168.2.11
+k8s-3:              192.168.2.12
 
-Kubernetes API VIP: 192.168.1.30
-MetalLB pool:       192.168.1.40-192.168.1.59
-Envoy ingress IP:   192.168.1.40
+Kubernetes API VIP: 192.168.2.80
+MetalLB pool:       192.168.2.100-192.168.2.149
+Envoy ingress IP:   192.168.2.100
 Domain:             k8s.lan
 ```
 
@@ -281,7 +285,9 @@ nano ansible/group_vars/all.yaml
 Add:
 
 ```yaml
-kubernetes_version_minor: "1.30"
+kubernetes_version_minor: "1.36"
+kubernetes_version: "1.36.1"
+kubernetes_deb_version: "1.36.1-1.1"
 
 cluster_name: homelab
 cluster_domain: cluster.local
@@ -618,10 +624,10 @@ nano kubernetes/bootstrap/kubeadm-config.yaml
 Add:
 
 ```yaml
-apiVersion: kubeadm.k8s.io/v1beta3
+apiVersion: kubeadm.k8s.io/v1beta4
 kind: ClusterConfiguration
-kubernetesVersion: stable
-controlPlaneEndpoint: "192.168.1.30:6443"
+kubernetesVersion: v1.36.1
+controlPlaneEndpoint: "192.168.2.80:6443"
 networking:
   podSubnet: "10.244.0.0/16"
   serviceSubnet: "10.96.0.0/12"

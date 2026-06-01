@@ -247,7 +247,12 @@ run kubectl get gateway -A
 run kubectl get httproute -A
 
 log "Running local HTTP smoke test through Envoy ingress IP"
-run curl -fsS -H "Host: whoami.local.edinstance.com" http://192.168.2.100/
+INGRESS_IP="$(
+  kubectl -n gateway-system get gateway main-gateway \
+    -o jsonpath='{.status.addresses[?(@.type=="IPAddress")].value}'
+)"
+[ -n "$INGRESS_IP" ] || die "Could not discover main-gateway ingress IP"
+run curl -fsS -H "Host: whoami.local.edinstance.com" "http://${INGRESS_IP}/"
 
 if [ "$RUN_FLUX" = "1" ]; then
   log "Bootstrapping Flux controllers and initial secrets"

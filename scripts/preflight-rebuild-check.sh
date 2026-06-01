@@ -85,6 +85,7 @@ need_cmd helm
 need_cmd helmfile
 need_cmd jq
 need_cmd curl
+need_cmd rg
 
 if [ "$CHECK_FLUX" = "1" ]; then
   need_cmd flux

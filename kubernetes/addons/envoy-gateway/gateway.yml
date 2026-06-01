@@ -26,3 +26,17 @@ spec:
           selector:
             matchLabels:
               gateway.edinstance.com/route-access: "true"
+    - name: https-local
+      protocol: HTTPS
+      port: 443
+      hostname: "*.local.edinstance.com"
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: local-edinstance-com-wildcard-tls
+      allowedRoutes:
+        namespaces:
+          from: Selector
+          selector:
+            matchLabels:
+              gateway.edinstance.com/route-access: "true"

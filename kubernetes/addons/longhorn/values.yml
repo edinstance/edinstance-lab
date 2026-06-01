@@ -1,0 +1,14 @@
+persistence:
+  defaultClass: true
+  defaultClassReplicaCount: 2
+
+defaultSettings:
+  defaultReplicaCount: 2
+  replicaAutoBalance: best-effort
+  storageOverProvisioningPercentage: 100
+  storageMinimalAvailablePercentage: 25
+  createDefaultDiskLabeledNodes: false
+  defaultDataPath: /var/lib/longhorn
+
+longhornUI:
+  replicas: 1

@@ -1,0 +1,15 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: local-edinstance-com-wildcard
+  namespace: gateway-system
+  annotations:
+    edinstance.com/note: "Certificate lives with the LAN-only Envoy Gateway resources in gateway-system."
+spec:
+  secretName: local-edinstance-com-wildcard-tls
+  issuerRef:
+    name: letsencrypt-prod-cloudflare
+    kind: ClusterIssuer
+  dnsNames:
+    - local.edinstance.com
+    - "*.local.edinstance.com"

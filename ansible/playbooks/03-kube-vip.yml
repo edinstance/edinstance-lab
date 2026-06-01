@@ -1,0 +1,52 @@
+---
+- name: Install kube-vip static pod manifest
+  hosts: k8s_control_plane
+  become: true
+
+  tasks:
+    - name: Create Kubernetes static pod manifest directory
+      ansible.builtin.file:
+        path: /etc/kubernetes/manifests
+        state: directory
+        mode: "0755"
+
+    - name: Pull kube-vip image
+      ansible.builtin.command:
+        cmd: "ctr image pull ghcr.io/kube-vip/kube-vip:{{ kube_vip_version }}"
+      changed_when: false
+
+    - name: Ensure a default IPv4 interface was detected
+      ansible.builtin.assert:
+        that:
+          - ansible_default_ipv4 is defined
+          - ansible_default_ipv4.interface is defined
+        fail_msg: >-
+          No default IPv4 route/interface was found on this host, so the
+          kube-vip interface cannot be determined. Configure a default route
+          or set kube_vip_interface explicitly before running this playbook.
+
+    - name: Detect default network interface
+      ansible.builtin.set_fact:
+        kube_vip_interface: "{{ ansible_default_ipv4.interface }}"
+
+    - name: Generate kube-vip static pod manifest
+      ansible.builtin.shell: |
+        set -euo pipefail
+        tmp_manifest="$(mktemp)"
+        ctr run --rm --net-host ghcr.io/kube-vip/kube-vip:{{ kube_vip_version }} vip \
+          /kube-vip manifest pod \
+          --interface "{{ kube_vip_interface }}" \
+          --address "{{ k8s_api_vip }}" \
+          --controlplane \
+          --arp \
+          --leaderElection \
+          > "$tmp_manifest"
+        if [ ! -s "$tmp_manifest" ]; then
+          rm -f "$tmp_manifest"
+          echo "kube-vip manifest generation produced an empty file" >&2
+          exit 1
+        fi
+        mv "$tmp_manifest" /etc/kubernetes/manifests/kube-vip.yaml
+      args:
+        executable: /bin/bash
+        creates: /etc/kubernetes/manifests/kube-vip.yaml

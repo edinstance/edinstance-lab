@@ -1,0 +1,23 @@
+apiVersion: platform.edinstance.com/v1alpha1
+kind: App
+metadata:
+  name: whoami
+  namespace: apps
+spec:
+  image: traefik/whoami:v1.11.0
+  port: 8080
+  replicas: 2
+  domains:
+    - whoami.local.edinstance.com
+  resources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi
+  probes:
+    path: /
+    initialDelaySeconds: 10
+  observability:
+    otel: false

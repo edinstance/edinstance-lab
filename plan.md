@@ -279,7 +279,7 @@ Do not continue until this works.
 Create:
 
 ```bash
-nano ansible/group_vars/all.yaml
+nano ansible/group_vars/all.yml
 ```
 
 Add:
@@ -313,7 +313,7 @@ envoy_ingress_ip: 192.168.2.100
 Create the playbook:
 
 ```bash
-nano ansible/playbooks/00-os-prereqs.yaml
+nano ansible/playbooks/00-os-prereqs.yml
 ```
 
 Add:
@@ -402,7 +402,7 @@ Add:
 Run it:
 
 ```bash
-ansible-playbook -i ansible/inventory.ini ansible/playbooks/00-os-prereqs.yaml
+ansible-playbook -i ansible/inventory.ini ansible/playbooks/00-os-prereqs.yml
 ```
 
 ---
@@ -412,7 +412,7 @@ ansible-playbook -i ansible/inventory.ini ansible/playbooks/00-os-prereqs.yaml
 Create:
 
 ```bash
-nano ansible/playbooks/01-containerd.yaml
+nano ansible/playbooks/01-containerd.yml
 ```
 
 Add:
@@ -458,7 +458,7 @@ Add:
 Run:
 
 ```bash
-ansible-playbook -i ansible/inventory.ini ansible/playbooks/01-containerd.yaml
+ansible-playbook -i ansible/inventory.ini ansible/playbooks/01-containerd.yml
 ```
 
 ---
@@ -468,7 +468,7 @@ ansible-playbook -i ansible/inventory.ini ansible/playbooks/01-containerd.yaml
 Create:
 
 ```bash
-nano ansible/playbooks/02-kubernetes-packages.yaml
+nano ansible/playbooks/02-kubernetes-packages.yml
 ```
 
 Add:
@@ -537,7 +537,7 @@ Add:
 Run:
 
 ```bash
-ansible-playbook -i ansible/inventory.ini ansible/playbooks/02-kubernetes-packages.yaml
+ansible-playbook -i ansible/inventory.ini ansible/playbooks/02-kubernetes-packages.yml
 ```
 
 ---
@@ -618,7 +618,7 @@ exit
 On your Mac, create:
 
 ```bash
-nano kubernetes/bootstrap/kubeadm-config.yaml
+nano kubernetes/bootstrap/kubeadm-config.yml
 ```
 
 Add:
@@ -650,7 +650,7 @@ cgroupDriver: systemd
 Copy it to `k8s-1`:
 
 ```bash
-scp kubernetes/bootstrap/kubeadm-config.yaml ubuntu@192.168.2.10:/tmp/kubeadm-config.yaml
+scp kubernetes/bootstrap/kubeadm-config.yml ubuntu@192.168.2.10:/tmp/kubeadm-config.yaml
 ```
 
 ---
@@ -759,7 +759,7 @@ k8s-1   NotReady   control-plane   ...
 Create:
 
 ```bash
-nano kubernetes/addons/cilium/values.yaml
+nano kubernetes/addons/cilium/values.yml
 ```
 
 Add:
@@ -791,7 +791,7 @@ helm repo add cilium https://helm.cilium.io
 helm repo update
 helm upgrade --install cilium cilium/cilium \
   --namespace kube-system \
-  --values kubernetes/addons/cilium/values.yaml
+  --values kubernetes/addons/cilium/values.yml
 ```
 
 Wait:
@@ -871,7 +871,7 @@ k8s-3   Ready    control-plane   ...
 Create:
 
 ```bash
-nano kubernetes/addons/metrics-server/values.yaml
+nano kubernetes/addons/metrics-server/values.yml
 ```
 
 Add:
@@ -888,7 +888,7 @@ helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
 helm repo update
 helm upgrade --install metrics-server metrics-server/metrics-server \
   --namespace kube-system \
-  --values kubernetes/addons/metrics-server/values.yaml
+  --values kubernetes/addons/metrics-server/values.yml
 ```
 
 Test:
@@ -906,7 +906,7 @@ It may take a minute or two before metrics appear.
 Create:
 
 ```bash
-nano kubernetes/addons/metallb/values.yaml
+nano kubernetes/addons/metallb/values.yml
 ```
 
 Add:
@@ -927,7 +927,7 @@ helm repo update
 helm upgrade --install metallb metallb/metallb \
   --namespace metallb-system \
   --create-namespace \
-  --values kubernetes/addons/metallb/values.yaml
+  --values kubernetes/addons/metallb/values.yml
 ```
 
 Wait:
@@ -940,7 +940,7 @@ kubectl -n metallb-system rollout status daemonset/metallb-speaker
 Create the address pool:
 
 ```bash
-nano kubernetes/addons/metallb/ip-address-pool.yaml
+nano kubernetes/addons/metallb/ip-address-pool.yml
 ```
 
 Add:
@@ -968,7 +968,7 @@ spec:
 Apply:
 
 ```bash
-kubectl apply -f kubernetes/addons/metallb/ip-address-pool.yaml
+kubectl apply -f kubernetes/addons/metallb/ip-address-pool.yml
 ```
 
 ---
@@ -978,7 +978,7 @@ kubectl apply -f kubernetes/addons/metallb/ip-address-pool.yaml
 Create:
 
 ```bash
-nano kubernetes/addons/envoy-gateway/values.yaml
+nano kubernetes/addons/envoy-gateway/values.yml
 ```
 
 For now, add an empty values file:
@@ -995,7 +995,7 @@ helm repo update
 helm upgrade --install envoy-gateway eg/gateway-helm \
   --namespace envoy-gateway-system \
   --create-namespace \
-  --values kubernetes/addons/envoy-gateway/values.yaml
+  --values kubernetes/addons/envoy-gateway/values.yml
 ```
 
 Wait:
@@ -1007,7 +1007,7 @@ kubectl -n envoy-gateway-system get pods
 Create GatewayClass:
 
 ```bash
-nano kubernetes/addons/envoy-gateway/gatewayclass.yaml
+nano kubernetes/addons/envoy-gateway/gatewayclass.yml
 ```
 
 Add:
@@ -1024,13 +1024,13 @@ spec:
 Apply:
 
 ```bash
-kubectl apply -f kubernetes/addons/envoy-gateway/gatewayclass.yaml
+kubectl apply -f kubernetes/addons/envoy-gateway/gatewayclass.yml
 ```
 
 Create Gateway:
 
 ```bash
-nano kubernetes/addons/envoy-gateway/gateway.yaml
+nano kubernetes/addons/envoy-gateway/gateway.yml
 ```
 
 Add:
@@ -1064,7 +1064,7 @@ spec:
 Apply:
 
 ```bash
-kubectl apply -f kubernetes/addons/envoy-gateway/gateway.yaml
+kubectl apply -f kubernetes/addons/envoy-gateway/gateway.yml
 ```
 
 Check whether Envoy received the load balancer IP:
@@ -1092,7 +1092,7 @@ kubectl create namespace apps
 Create a test app manifest:
 
 ```bash
-nano apps/whoami/whoami.yaml
+nano apps/whoami/whoami.yml
 ```
 
 Add:
@@ -1152,7 +1152,7 @@ spec:
 Apply:
 
 ```bash
-kubectl apply -f apps/whoami/whoami.yaml
+kubectl apply -f apps/whoami/whoami.yml
 ```
 
 Check:

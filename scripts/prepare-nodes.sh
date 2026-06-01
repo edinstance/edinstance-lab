@@ -78,8 +78,6 @@ done
 
 need_cmd ansible
 need_cmd ansible-playbook
-need_cmd ansible-inventory
-need_cmd jq
 
 cd "$ROOT_DIR"
 

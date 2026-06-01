@@ -204,7 +204,9 @@ Bootstrap Flux:
 export KUBECONFIG=~/.kube/homelab
 export FLUX_GIT_IDENTITY_FILE=~/.ssh/edinstance-lab-flux
 export SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt
-export GRAFANA_ADMIN_PASSWORD='<strong-password>'
+read -rsp "Grafana admin password: " GRAFANA_ADMIN_PASSWORD
+printf '\n'
+export GRAFANA_ADMIN_PASSWORD
 
 ansible-playbook -i ansible/inventory.ini ansible/playbooks/04-flux-bootstrap.yml
 ```
@@ -235,10 +237,13 @@ private deploy keys, `.env` files, or backup archives.
 Example for Grafana:
 
 ```bash
-cp kubernetes/secrets/grafana-admin.example.yml /tmp/grafana-admin.yml
-# Edit /tmp/grafana-admin.yml with real values.
-sops --encrypt /tmp/grafana-admin.yml > kubernetes/secrets/grafana-admin.sops.yml
-rm /tmp/grafana-admin.yml
+temp=$(mktemp)
+chmod 600 "$temp"
+trap 'shred -u "$temp" || rm -f "$temp"' EXIT
+
+cp kubernetes/secrets/grafana-admin.example.yml "$temp"
+# Edit "$temp" with real values.
+sops --encrypt "$temp" > kubernetes/secrets/grafana-admin.sops.yml
 ```
 
 Add the encrypted file to `kubernetes/secrets/kustomization.yml`:

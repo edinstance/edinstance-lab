@@ -48,9 +48,9 @@ If any of those differ, tell me before you run the bootstrap steps.
 From your Mac, check that each node responds:
 
 ```bash
-ping 192.168.1.21
-ping 192.168.1.22
-ping 192.168.1.23
+ping 192.168.2.10
+ping 192.168.2.11
+ping 192.168.2.12
 ```
 
 If you created local DNS records, also test:
@@ -146,17 +146,17 @@ Then copy your key to each node.
 Replace `ubuntu` with your actual Ubuntu username if different:
 
 ```bash
-ssh-copy-id ubuntu@192.168.1.21
-ssh-copy-id ubuntu@192.168.1.22
-ssh-copy-id ubuntu@192.168.1.23
+ssh-copy-id ubuntu@192.168.2.10
+ssh-copy-id ubuntu@192.168.2.11
+ssh-copy-id ubuntu@192.168.2.12
 ```
 
 Test SSH:
 
 ```bash
-ssh ubuntu@192.168.1.21 hostname
-ssh ubuntu@192.168.1.22 hostname
-ssh ubuntu@192.168.1.23 hostname
+ssh ubuntu@192.168.2.10 hostname
+ssh ubuntu@192.168.2.11 hostname
+ssh ubuntu@192.168.2.12 hostname
 ```
 
 Expected:
@@ -232,9 +232,9 @@ Add:
 
 ```ini
 [k8s_control_plane]
-k8s-1 ansible_host=192.168.1.21
-k8s-2 ansible_host=192.168.1.22
-k8s-3 ansible_host=192.168.1.23
+k8s-1 ansible_host=192.168.2.10
+k8s-2 ansible_host=192.168.2.11
+k8s-3 ansible_host=192.168.2.12
 
 [k8s_nodes:children]
 k8s_control_plane
@@ -292,18 +292,18 @@ kubernetes_deb_version: "1.36.1-1.1"
 cluster_name: homelab
 cluster_domain: cluster.local
 
-lan_subnet: 192.168.1.0/24
-lan_gateway: 192.168.1.1
+lan_subnet: 192.168.2.0/24
+lan_gateway: 192.168.2.1
 lan_domain: k8s.lan
 
-k8s_api_vip: 192.168.1.30
+k8s_api_vip: 192.168.2.80
 k8s_api_dns_name: k8s-api.k8s.lan
 
 pod_subnet: 10.244.0.0/16
 service_subnet: 10.96.0.0/12
 
-metallb_pool: 192.168.1.40-192.168.1.59
-envoy_ingress_ip: 192.168.1.40
+metallb_pool: 192.168.2.100-192.168.2.149
+envoy_ingress_ip: 192.168.2.100
 ```
 
 ---
@@ -563,7 +563,7 @@ ansible -i ansible/inventory.ini k8s_nodes -m ping
 We need the Kubernetes API to live behind:
 
 ```text
-192.168.1.30
+192.168.2.80
 ```
 
 For a highly available kubeadm control plane, use `kube-vip`.
@@ -571,7 +571,7 @@ For a highly available kubeadm control plane, use `kube-vip`.
 SSH into `k8s-1`:
 
 ```bash
-ssh ubuntu@192.168.1.21
+ssh ubuntu@192.168.2.10
 ```
 
 Pull the kube-vip image and generate the manifest:
@@ -592,7 +592,7 @@ Generate the kube-vip manifest:
 sudo ctr run --rm --net-host ghcr.io/kube-vip/kube-vip:v0.8.2 vip \
   /kube-vip manifest pod \
   --interface "$(ip route | awk '/default/ {print $5; exit}')" \
-  --address 192.168.1.30 \
+  --address 192.168.2.80 \
   --controlplane \
   --arp \
   --leaderElection \
@@ -633,14 +633,14 @@ networking:
   serviceSubnet: "10.96.0.0/12"
 apiServer:
   certSANs:
-    - "192.168.1.30"
+    - "192.168.2.80"
     - "k8s-api.k8s.lan"
     - "k8s-1"
     - "k8s-2"
     - "k8s-3"
-    - "192.168.1.21"
-    - "192.168.1.22"
-    - "192.168.1.23"
+    - "192.168.2.10"
+    - "192.168.2.11"
+    - "192.168.2.12"
 ---
 apiVersion: kubelet.config.k8s.io/v1beta1
 kind: KubeletConfiguration
@@ -650,7 +650,7 @@ cgroupDriver: systemd
 Copy it to `k8s-1`:
 
 ```bash
-scp kubernetes/bootstrap/kubeadm-config.yaml ubuntu@192.168.1.21:/tmp/kubeadm-config.yaml
+scp kubernetes/bootstrap/kubeadm-config.yaml ubuntu@192.168.2.10:/tmp/kubeadm-config.yaml
 ```
 
 ---
@@ -660,7 +660,7 @@ scp kubernetes/bootstrap/kubeadm-config.yaml ubuntu@192.168.1.21:/tmp/kubeadm-co
 SSH into `k8s-1`:
 
 ```bash
-ssh ubuntu@192.168.1.21
+ssh ubuntu@192.168.2.10
 ```
 
 Run:
@@ -674,7 +674,7 @@ sudo kubeadm init \
 At the end, kubeadm will print commands like:
 
 ```text
-kubeadm join 192.168.1.30:6443 ...
+kubeadm join 192.168.2.80:6443 ...
 ```
 
 Important: save both join commands:
@@ -685,7 +685,7 @@ Important: save both join commands:
 They will look roughly like this:
 
 ```bash
-sudo kubeadm join 192.168.1.30:6443 \
+sudo kubeadm join 192.168.2.80:6443 \
   --token ... \
   --discovery-token-ca-cert-hash sha256:... \
   --control-plane \
@@ -728,7 +728,7 @@ On your Mac:
 
 ```bash
 mkdir -p ~/.kube
-scp ubuntu@192.168.1.21:/home/ubuntu/.kube/config ~/.kube/homelab
+scp ubuntu@192.168.2.10:/home/ubuntu/.kube/config ~/.kube/homelab
 ```
 
 If your Ubuntu username is not `ubuntu`, adjust the path.
@@ -767,7 +767,7 @@ Add:
 ```yaml
 kubeProxyReplacement: true
 
-k8sServiceHost: 192.168.1.30
+k8sServiceHost: 192.168.2.80
 k8sServicePort: 6443
 
 ipam:
@@ -816,7 +816,7 @@ Before joining, install kube-vip manifest on each additional control-plane node.
 SSH into `k8s-2`:
 
 ```bash
-ssh ubuntu@192.168.1.22
+ssh ubuntu@192.168.2.11
 ```
 
 Run:
@@ -827,7 +827,7 @@ sudo mkdir -p /etc/kubernetes/manifests
 sudo ctr run --rm --net-host ghcr.io/kube-vip/kube-vip:v0.8.2 vip \
   /kube-vip manifest pod \
   --interface "$(ip route | awk '/default/ {print $5; exit}')" \
-  --address 192.168.1.30 \
+  --address 192.168.2.80 \
   --controlplane \
   --arp \
   --leaderElection \
@@ -840,7 +840,7 @@ Then run the control-plane join command from kubeadm.
 It will look like:
 
 ```bash
-sudo kubeadm join 192.168.1.30:6443 \
+sudo kubeadm join 192.168.2.80:6443 \
   --token YOUR_TOKEN \
   --discovery-token-ca-cert-hash sha256:YOUR_HASH \
   --control-plane \
@@ -953,7 +953,7 @@ metadata:
   namespace: metallb-system
 spec:
   addresses:
-    - 192.168.1.40-192.168.1.59
+    - 192.168.2.100-192.168.2.149
 ---
 apiVersion: metallb.io/v1beta1
 kind: L2Advertisement
@@ -1050,7 +1050,7 @@ spec:
   gatewayClassName: eg
   addresses:
     - type: IPAddress
-      value: 192.168.1.40
+      value: 192.168.2.100
   listeners:
     - name: http
       protocol: HTTP
@@ -1076,7 +1076,7 @@ kubectl get svc -A | grep LoadBalancer
 You want to see something using:
 
 ```text
-192.168.1.40
+192.168.2.100
 ```
 
 ---
@@ -1170,7 +1170,7 @@ kubectl -n apps get httproute
 You need:
 
 ```text
-whoami.k8s.lan -> 192.168.1.40
+whoami.k8s.lan -> 192.168.2.100
 ```
 
 If you added this in UniFi, test:
@@ -1182,7 +1182,7 @@ dig whoami.k8s.lan
 Expected:
 
 ```text
-192.168.1.40
+192.168.2.100
 ```
 
 If DNS is not set up yet, temporarily add this to your Mac:
@@ -1194,7 +1194,7 @@ sudo nano /etc/hosts
 Add:
 
 ```text
-192.168.1.40 whoami.k8s.lan
+192.168.2.100 whoami.k8s.lan
 ```
 
 Then test:

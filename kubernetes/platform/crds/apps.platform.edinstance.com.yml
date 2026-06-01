@@ -145,7 +145,7 @@ spec:
                           default: 3
                         successThreshold:
                           type: integer
-                          minimum: 1
+                          const: 1
                           default: 1
                         httpGet:
                           type: object

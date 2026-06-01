@@ -2,15 +2,31 @@
 - name: Configure OS prerequisites for Kubernetes
   hosts: k8s_nodes
   become: true
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+    NEEDRESTART_MODE: a
 
   tasks:
+    - name: Disable unmanaged desktop apt sources
+      ansible.builtin.command:
+        cmd: "mv {{ item }} {{ item }}.disabled"
+        removes: "{{ item }}"
+        creates: "{{ item }}.disabled"
+      loop:
+        - /etc/apt/sources.list.d/docker.list
+        - /etc/apt/sources.list.d/flatpak-ubuntu-stable-noble.sources
+        - /etc/apt/sources.list.d/google-chrome.list
+
     - name: Update apt cache
       ansible.builtin.apt:
         update_cache: true
+        lock_timeout: 300
 
     - name: Upgrade packages
       ansible.builtin.apt:
         upgrade: dist
+        lock_timeout: 300
+      when: os_prereqs_upgrade_packages | default(false) | bool
 
     - name: Disable swap immediately
       ansible.builtin.command: swapoff -a

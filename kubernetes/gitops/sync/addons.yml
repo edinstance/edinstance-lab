@@ -1,0 +1,20 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: addons
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: secrets
+  interval: 10m
+  path: ./kubernetes/addons
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: edinstance-lab
+  timeout: 5m
+  wait: true
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age

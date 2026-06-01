@@ -1,0 +1,66 @@
+repositories:
+  - name: cilium
+    url: https://helm.cilium.io
+  - name: metrics-server
+    url: https://kubernetes-sigs.github.io/metrics-server/
+  - name: metallb
+    url: https://metallb.github.io/metallb
+  - name: longhorn
+    url: https://charts.longhorn.io
+
+releases:
+  - name: cilium
+    namespace: kube-system
+    chart: cilium/cilium
+    version: 1.19.4
+    values:
+      - kubernetes/addons/cilium/values.yml
+
+  - name: metrics-server
+    namespace: kube-system
+    chart: metrics-server/metrics-server
+    version: 3.13.0
+    needs:
+      - kube-system/cilium
+    values:
+      - kubernetes/addons/metrics-server/values.yml
+
+  - name: metallb
+    namespace: metallb-system
+    chart: metallb/metallb
+    version: 0.16.1
+    createNamespace: true
+    needs:
+      - kube-system/cilium
+    values:
+      - kubernetes/addons/metallb/values.yml
+
+  - name: envoy-gateway
+    namespace: gateway-system
+    chart: oci://docker.io/envoyproxy/gateway-helm
+    version: v1.8.0
+    createNamespace: true
+    needs:
+      - metallb-system/metallb
+    values:
+      - kubernetes/addons/envoy-gateway/values.yml
+
+  - name: longhorn
+    namespace: longhorn-system
+    chart: longhorn/longhorn
+    version: 1.11.2
+    createNamespace: true
+    needs:
+      - kube-system/cilium
+    values:
+      - kubernetes/addons/longhorn/values.yml
+
+  - name: cert-manager
+    namespace: cert-manager
+    chart: oci://quay.io/jetstack/charts/cert-manager
+    version: v1.20.2
+    createNamespace: true
+    needs:
+      - kube-system/cilium
+    values:
+      - kubernetes/addons/cert-manager/values.yml

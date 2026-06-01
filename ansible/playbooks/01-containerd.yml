@@ -1,0 +1,65 @@
+---
+- name: Install and configure containerd
+  hosts: k8s_nodes
+  become: true
+
+  tasks:
+    - name: Install containerd
+      ansible.builtin.apt:
+        name:
+          - containerd
+        state: present
+        update_cache: true
+
+    - name: Create containerd config directory
+      ansible.builtin.file:
+        path: /etc/containerd
+        state: directory
+        mode: "0755"
+
+    - name: Generate default containerd config
+      ansible.builtin.shell: containerd config default > /etc/containerd/config.toml
+      args:
+        creates: /etc/containerd/config.toml
+
+    - name: Use systemd cgroup driver
+      ansible.builtin.replace:
+        path: /etc/containerd/config.toml
+        regexp: 'SystemdCgroup = false'
+        replace: 'SystemdCgroup = true'
+      notify: Restart containerd
+
+    - name: Enable containerd CRI plugin
+      ansible.builtin.replace:
+        path: /etc/containerd/config.toml
+        regexp: '^disabled_plugins\s*=\s*\[.*"cri".*\]'
+        replace: 'disabled_plugins = []'
+      notify: Restart containerd
+
+    - name: Enable and start containerd
+      ansible.builtin.systemd:
+        name: containerd
+        enabled: true
+        state: started
+
+    - name: Apply containerd config changes
+      ansible.builtin.meta: flush_handlers
+
+    - name: Verify containerd CRI plugin is loaded
+      ansible.builtin.command: ctr plugins ls
+      register: containerd_plugins
+      changed_when: false
+
+    - name: Fail if containerd CRI plugin is unavailable
+      ansible.builtin.assert:
+        that:
+          - containerd_plugins.stdout is search('(?m)^io\\.containerd\\.(cri\\.v1\\s+runtime|grpc\\.v1\\s+cri)\\s+.*\\s+ok\\s*$')
+        fail_msg: >-
+          containerd CRI plugin is not loaded. Check /etc/containerd/config.toml
+          and ensure disabled_plugins does not contain "cri".
+
+  handlers:
+    - name: Restart containerd
+      ansible.builtin.systemd:
+        name: containerd
+        state: restarted

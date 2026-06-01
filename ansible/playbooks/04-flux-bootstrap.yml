@@ -1,0 +1,96 @@
+---
+- name: Bootstrap Flux and initial GitOps secrets
+  hosts: localhost
+  gather_facts: false
+
+  vars:
+    flux_namespace: flux-system
+    monitoring_namespace: monitoring
+    flux_git_identity_file: "{{ lookup('env', 'FLUX_GIT_IDENTITY_FILE') }}"
+    sops_age_key_file: "{{ lookup('env', 'SOPS_AGE_KEY_FILE') | default(lookup('env', 'HOME') + '/.config/sops/age/keys.txt', true) }}"
+    grafana_admin_user: "{{ lookup('env', 'GRAFANA_ADMIN_USER') | default('admin', true) }}"
+    grafana_admin_password: "{{ lookup('env', 'GRAFANA_ADMIN_PASSWORD') }}"
+    github_ssh_fingerprints:
+      - SHA256:nThbg6kXUpJWGl7E1IGOCspRomTxdCARLviKw6E5SY8
+      - SHA256:p2QAMXNIC1TJYWeIOttrVc98/R1BUFWu3/LiyKgUfQM
+      - SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU
+
+  tasks:
+    - name: Check kubectl is installed
+      ansible.builtin.command: kubectl version --client=true
+      changed_when: false
+
+    - name: Check flux CLI is installed
+      ansible.builtin.command: flux --version
+      changed_when: false
+
+    - name: Install Flux controllers
+      ansible.builtin.command: flux install
+      changed_when: true
+
+    - name: Create flux-system namespace
+      ansible.builtin.shell: |
+        kubectl create namespace {{ flux_namespace }} \
+          --dry-run=client -o yaml | kubectl apply -f -
+      changed_when: true
+
+    - name: Create monitoring namespace for bootstrap secrets
+      ansible.builtin.shell: |
+        kubectl create namespace {{ monitoring_namespace }} \
+          --dry-run=client -o yaml | kubectl apply -f -
+      changed_when: true
+
+    - name: Create Flux SOPS age secret
+      ansible.builtin.shell: |
+        kubectl -n {{ flux_namespace }} create secret generic sops-age \
+          --from-file=age.agekey={{ sops_age_key_file | quote }} \
+          --dry-run=client -o yaml | kubectl apply -f -
+      changed_when: true
+      when: sops_age_key_file | length > 0
+
+    - name: Scan GitHub SSH host key
+      ansible.builtin.command: ssh-keyscan github.com
+      register: github_known_hosts
+      changed_when: false
+      when: flux_git_identity_file | length > 0
+
+    - name: Verify GitHub SSH host key fingerprint
+      ansible.builtin.shell: |
+        set -euo pipefail
+        known_hosts_file="$(mktemp)"
+        expected_file="$(mktemp)"
+        trap 'rm -f "$known_hosts_file" "$expected_file"' EXIT
+        printf '%s\n' {{ github_known_hosts.stdout | quote }} > "$known_hosts_file"
+        printf '%s\n' {{ github_ssh_fingerprints | map('quote') | join(' ') }} > "$expected_file"
+        ssh-keygen -lf "$known_hosts_file" | awk '{print $2}' | grep -Fx -f "$expected_file"
+      args:
+        executable: /bin/bash
+      changed_when: false
+      when: flux_git_identity_file | length > 0
+
+    - name: Create Flux git deploy key secret
+      ansible.builtin.shell: |
+        kubectl -n {{ flux_namespace }} create secret generic flux-system \
+          --from-file=identity={{ flux_git_identity_file | quote }} \
+          --from-file=identity.pub={{ (flux_git_identity_file + '.pub') | quote }} \
+          --from-literal=known_hosts={{ github_known_hosts.stdout | quote }} \
+          --dry-run=client -o yaml | kubectl apply -f -
+      changed_when: true
+      when: flux_git_identity_file | length > 0
+
+    - name: Create bootstrap Grafana admin secret
+      ansible.builtin.shell: |
+        kubectl -n {{ monitoring_namespace }} create secret generic grafana-admin \
+          --from-literal=admin-user={{ grafana_admin_user | quote }} \
+          --from-literal=admin-password={{ grafana_admin_password | quote }} \
+          --dry-run=client -o yaml | kubectl apply -f -
+      changed_when: true
+      no_log: true
+      when: grafana_admin_password | length > 0
+
+    - name: Apply Flux repository and root kustomization manifests
+      ansible.builtin.command:
+        cmd: kubectl apply -k kubernetes/addons/flux
+      args:
+        chdir: "{{ playbook_dir }}/../.."
+      changed_when: true

@@ -1,0 +1,36 @@
+lan:
+  subnet: 192.168.2.0/24
+  gateway: 192.168.2.1
+  vlanId: 1
+  domain: k8s.lan
+
+ranges:
+  reservedNetworkGear: 192.168.2.2-192.168.2.9
+  kubernetesNodes: 192.168.2.10-192.168.2.79
+  staticInfrastructure: 192.168.2.80-192.168.2.99
+  metallbLoadBalancers: 192.168.2.100-192.168.2.149
+  dhcpClients: 192.168.2.150-192.168.2.199
+  reservedFuture: 192.168.2.200-192.168.2.254
+
+dhcp:
+  recommendedStart: 192.168.2.150
+  recommendedEnd: 192.168.2.199
+
+nodes:
+  - name: k8s-1
+    ip: 192.168.2.10
+  - name: k8s-2
+    ip: 192.168.2.11
+  - name: k8s-3
+    ip: 192.168.2.12
+
+kubernetes:
+  apiVip: 192.168.2.80
+  apiDnsName: k8s-api.k8s.lan
+  podSubnet: 10.244.0.0/16
+  serviceSubnet: 10.96.0.0/12
+
+metallb:
+  poolStart: 192.168.2.100
+  poolEnd: 192.168.2.149
+  envoyIngressIp: 192.168.2.100

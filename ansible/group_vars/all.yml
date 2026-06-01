@@ -1,0 +1,20 @@
+kubernetes_version_minor: "1.36"
+kubernetes_version: "1.36.1"
+kubernetes_deb_version: "1.36.1-1.1"
+kube_vip_version: "v0.8.2"
+
+cluster_name: homelab
+cluster_domain: cluster.local
+
+lan_subnet: 192.168.2.0/24
+lan_gateway: 192.168.2.1
+lan_domain: k8s.lan
+
+k8s_api_vip: 192.168.2.80
+k8s_api_dns_name: k8s-api.k8s.lan
+
+pod_subnet: 10.244.0.0/16
+service_subnet: 10.96.0.0/12
+
+metallb_pool: 192.168.2.100-192.168.2.149
+envoy_ingress_ip: 192.168.2.100

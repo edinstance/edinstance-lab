@@ -1,0 +1,212 @@
+---
+- name: Back up Kubernetes control-plane files
+  hosts: k8s_control_plane
+  become: true
+  gather_facts: true
+
+  vars:
+    remote_backup_dir: "/var/backups/kubernetes"
+    local_backup_dir: "{{ playbook_dir }}/../../backups/{{ backup_timestamp }}"
+    remote_file_archive: "{{ remote_backup_dir }}/{{ inventory_hostname }}-control-plane-files-{{ backup_timestamp }}.tar.gz"
+    retention_days: 14
+
+  tasks:
+    - name: Generate a single shared backup timestamp
+      ansible.builtin.set_fact:
+        backup_timestamp: "{{ hostvars[groups['k8s_control_plane'][0]].backup_timestamp
+          | default(lookup('pipe', 'date -u +%Y%m%dT%H%M%SZ')) }}"
+      run_once: true
+      delegate_to: "{{ groups['k8s_control_plane'][0] }}"
+      delegate_facts: true
+
+    - name: Share the backup timestamp with all control-plane hosts
+      ansible.builtin.set_fact:
+        backup_timestamp: "{{ hostvars[groups['k8s_control_plane'][0]].backup_timestamp }}"
+
+    - name: Create remote backup directory
+      ansible.builtin.file:
+        path: "{{ remote_backup_dir }}"
+        state: directory
+        mode: "0700"
+
+    - name: Find old remote file backups
+      ansible.builtin.find:
+        paths: "{{ remote_backup_dir }}"
+        patterns:
+          - "{{ inventory_hostname }}-control-plane-files-*.tar.gz"
+        age: "{{ retention_days }}d"
+      register: old_remote_file_backups
+
+    - name: Prune old remote file backups
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ old_remote_file_backups.files }}"
+
+    - name: Check Kubernetes paths
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - /etc/kubernetes/pki
+        - /etc/kubernetes/admin.conf
+        - /etc/kubernetes/manifests
+        - /var/lib/kubelet/config.yaml
+      register: kubernetes_backup_paths
+
+    - name: Build existing path list
+      ansible.builtin.set_fact:
+        existing_kubernetes_backup_paths: >-
+          {{ kubernetes_backup_paths.results
+            | selectattr('stat.exists')
+            | map(attribute='item')
+            | list }}
+
+    - name: Create control-plane file archive
+      ansible.builtin.command:
+        argv: "{{ ['tar', '-czf', remote_file_archive] + existing_kubernetes_backup_paths }}"
+      changed_when: true
+      when: existing_kubernetes_backup_paths | length > 0
+
+    - name: Create local backup directory
+      ansible.builtin.file:
+        path: "{{ local_backup_dir }}"
+        state: directory
+        mode: "0700"
+      delegate_to: localhost
+      become: false
+
+    - name: Find old local file backups
+      ansible.builtin.find:
+        paths: "{{ playbook_dir }}/../../backups"
+        patterns:
+          - "{{ inventory_hostname }}-control-plane-files-*.tar.gz"
+        recurse: true
+        age: "{{ retention_days }}d"
+      register: old_local_file_backups
+      delegate_to: localhost
+      become: false
+
+    - name: Prune old local file backups
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ old_local_file_backups.files }}"
+      delegate_to: localhost
+      become: false
+
+    - name: Fetch control-plane file archive
+      ansible.builtin.fetch:
+        src: "{{ remote_file_archive }}"
+        dest: "{{ local_backup_dir }}/"
+        flat: true
+      when: existing_kubernetes_backup_paths | length > 0
+
+- name: Back up etcd snapshot from first control-plane node
+  hosts: k8s_control_plane[0]
+  become: true
+  gather_facts: false
+
+  vars:
+    backup_timestamp: "{{ hostvars[groups['k8s_control_plane'][0]].backup_timestamp }}"
+    remote_backup_dir: "/var/backups/kubernetes"
+    local_backup_dir: "{{ playbook_dir }}/../../backups/{{ backup_timestamp }}"
+    remote_etcd_snapshot: "{{ remote_backup_dir }}/{{ inventory_hostname }}-etcd-snapshot-{{ backup_timestamp }}.db"
+    retention_days: 14
+
+  tasks:
+    - name: Create remote backup directory
+      ansible.builtin.file:
+        path: "{{ remote_backup_dir }}"
+        state: directory
+        mode: "0700"
+
+    - name: Find old remote etcd snapshots
+      ansible.builtin.find:
+        paths: "{{ remote_backup_dir }}"
+        patterns:
+          - "{{ inventory_hostname }}-etcd-snapshot-*.db"
+        age: "{{ retention_days }}d"
+      register: old_remote_etcd_snapshots
+
+    - name: Prune old remote etcd snapshots
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ old_remote_etcd_snapshots.files }}"
+
+    - name: Check etcdctl
+      ansible.builtin.command:
+        cmd: which etcdctl
+      register: etcdctl_check
+      changed_when: false
+      failed_when: false
+
+    - name: Check etcd certificates
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - /etc/kubernetes/pki/etcd/ca.crt
+        - /etc/kubernetes/pki/etcd/server.crt
+        - /etc/kubernetes/pki/etcd/server.key
+      register: etcd_cert_paths
+
+    - name: Determine whether etcd snapshot can run
+      ansible.builtin.set_fact:
+        can_snapshot_etcd: >-
+          {{ etcdctl_check.rc == 0 and
+            (etcd_cert_paths.results | selectattr('stat.exists') | list | length) == 3 }}
+
+    - name: Create etcd snapshot
+      ansible.builtin.command:
+        argv:
+          - etcdctl
+          - --endpoints=https://127.0.0.1:2379
+          - --cacert=/etc/kubernetes/pki/etcd/ca.crt
+          - --cert=/etc/kubernetes/pki/etcd/server.crt
+          - --key=/etc/kubernetes/pki/etcd/server.key
+          - snapshot
+          - save
+          - "{{ remote_etcd_snapshot }}"
+      environment:
+        ETCDCTL_API: "3"
+      changed_when: true
+      when: can_snapshot_etcd
+
+    - name: Create local backup directory
+      ansible.builtin.file:
+        path: "{{ local_backup_dir }}"
+        state: directory
+        mode: "0700"
+      delegate_to: localhost
+      become: false
+
+    - name: Find old local etcd snapshots
+      ansible.builtin.find:
+        paths: "{{ playbook_dir }}/../../backups"
+        patterns:
+          - "{{ inventory_hostname }}-etcd-snapshot-*.db"
+        recurse: true
+        age: "{{ retention_days }}d"
+      register: old_local_etcd_snapshots
+      delegate_to: localhost
+      become: false
+
+    - name: Prune old local etcd snapshots
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ old_local_etcd_snapshots.files }}"
+      delegate_to: localhost
+      become: false
+
+    - name: Fetch etcd snapshot
+      ansible.builtin.fetch:
+        src: "{{ remote_etcd_snapshot }}"
+        dest: "{{ local_backup_dir }}/"
+        flat: true
+      when: can_snapshot_etcd
+
+    - name: Report skipped etcd snapshot
+      ansible.builtin.debug:
+        msg: "Skipped etcd snapshot because etcdctl or kubeadm etcd certificates were not found."
+      when: not can_snapshot_etcd

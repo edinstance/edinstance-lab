@@ -1,0 +1,5 @@
+args:
+  - --kubelet-insecure-tls
+
+# TODO: Replace --kubelet-insecure-tls once kubelet serving certificates chain
+# to a CA trusted by metrics-server.

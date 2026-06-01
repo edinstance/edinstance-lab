@@ -1,0 +1,241 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: apps.platform.edinstance.com
+spec:
+  group: platform.edinstance.com
+  names:
+    kind: App
+    listKind: AppList
+    plural: apps
+    singular: app
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Image
+          type: string
+          jsonPath: .spec.image
+        - name: Port
+          type: integer
+          jsonPath: .spec.port
+        - name: Ready
+          type: string
+          jsonPath: .status.ready
+      schema:
+        openAPIV3Schema:
+          type: object
+          required:
+            - spec
+          properties:
+            spec:
+              type: object
+              required:
+                - image
+                - port
+              properties:
+                image:
+                  type: string
+                  minLength: 1
+                port:
+                  type: integer
+                  minimum: 1
+                  maximum: 65535
+                replicas:
+                  type: integer
+                  minimum: 1
+                  maximum: 20
+                  default: 2
+                domains:
+                  type: array
+                  items:
+                    type: string
+                    minLength: 1
+                env:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - name
+                    properties:
+                      name:
+                        type: string
+                        pattern: ^[A-Za-z_][A-Za-z0-9_]*$
+                      value:
+                        type: string
+                      valueFromSecret:
+                        type: object
+                        required:
+                          - name
+                          - key
+                        properties:
+                          name:
+                            type: string
+                          key:
+                            type: string
+                    oneOf:
+                      - required:
+                          - value
+                      - required:
+                          - valueFromSecret
+                resources:
+                  type: object
+                  properties:
+                    requests:
+                      type: object
+                      properties:
+                        cpu:
+                          type: string
+                        memory:
+                          type: string
+                    limits:
+                      type: object
+                      properties:
+                        cpu:
+                          type: string
+                        memory:
+                          type: string
+                probes:
+                  type: object
+                  properties:
+                    path:
+                      type: string
+                      default: /
+                      description: Deprecated default HTTP path used when liveness/readiness are not set.
+                    initialDelaySeconds:
+                      type: integer
+                      minimum: 0
+                      default: 10
+                      description: Deprecated default delay used when liveness/readiness are not set.
+                    liveness:
+                      type: object
+                      properties:
+                        enabled:
+                          type: boolean
+                          default: true
+                        type:
+                          type: string
+                          enum:
+                            - httpGet
+                            - tcpSocket
+                          default: httpGet
+                        path:
+                          type: string
+                          default: /
+                          description: Backward-compatible shorthand for httpGet.path.
+                        initialDelaySeconds:
+                          type: integer
+                          minimum: 0
+                          default: 10
+                        periodSeconds:
+                          type: integer
+                          minimum: 1
+                          default: 10
+                        timeoutSeconds:
+                          type: integer
+                          minimum: 1
+                          default: 1
+                        failureThreshold:
+                          type: integer
+                          minimum: 1
+                          default: 3
+                        successThreshold:
+                          type: integer
+                          const: 1
+                          default: 1
+                        httpGet:
+                          type: object
+                          properties:
+                            path:
+                              type: string
+                              default: /
+                            port:
+                              x-kubernetes-int-or-string: true
+                              anyOf:
+                                - type: integer
+                                - type: string
+                        tcpSocket:
+                          type: object
+                          properties:
+                            port:
+                              x-kubernetes-int-or-string: true
+                              anyOf:
+                                - type: integer
+                                - type: string
+                    readiness:
+                      type: object
+                      properties:
+                        enabled:
+                          type: boolean
+                          default: true
+                        type:
+                          type: string
+                          enum:
+                            - httpGet
+                            - tcpSocket
+                          default: httpGet
+                        path:
+                          type: string
+                          default: /
+                          description: Backward-compatible shorthand for httpGet.path.
+                        initialDelaySeconds:
+                          type: integer
+                          minimum: 0
+                          default: 10
+                        periodSeconds:
+                          type: integer
+                          minimum: 1
+                          default: 10
+                        timeoutSeconds:
+                          type: integer
+                          minimum: 1
+                          default: 1
+                        failureThreshold:
+                          type: integer
+                          minimum: 1
+                          default: 3
+                        successThreshold:
+                          type: integer
+                          minimum: 1
+                          default: 1
+                        httpGet:
+                          type: object
+                          properties:
+                            path:
+                              type: string
+                              default: /
+                            port:
+                              x-kubernetes-int-or-string: true
+                              anyOf:
+                                - type: integer
+                                - type: string
+                        tcpSocket:
+                          type: object
+                          properties:
+                            port:
+                              x-kubernetes-int-or-string: true
+                              anyOf:
+                                - type: integer
+                                - type: string
+                observability:
+                  type: object
+                  properties:
+                    otel:
+                      type: boolean
+                      default: true
+                    metricsPath:
+                      type: string
+            status:
+              type: object
+              properties:
+                ready:
+                  type: string
+                url:
+                  type: string
+                observedGeneration:
+                  type: integer
+                  format: int64

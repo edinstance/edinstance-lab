@@ -1,0 +1,111 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: monitoring
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns-egress
+  namespace: monitoring
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-monitoring-internal-ingress
+  namespace: monitoring
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector: {}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-scrape-egress
+  namespace: monitoring
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector: {}
+        - ipBlock:
+            cidr: 10.0.0.0/8
+        - ipBlock:
+            cidr: 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 6443
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 9090
+        - protocol: UDP
+          port: 9090
+        - protocol: TCP
+          port: 9093
+        - protocol: UDP
+          port: 9093
+        - protocol: TCP
+          port: 9094
+        - protocol: UDP
+          port: 9094
+        - protocol: TCP
+          port: 9100
+        - protocol: TCP
+          port: 9153
+        - protocol: TCP
+          port: 10250
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-gateway-to-grafana
+  namespace: monitoring
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: grafana
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: gateway-system
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare-tunnel
+      ports:
+        - protocol: TCP
+          port: 3000

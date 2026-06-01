@@ -1,0 +1,47 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: SERVICE_NAME
+  namespace: apps
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: SERVICE_NAME
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        # Gateway Namespace mode may need the Gateway resource namespace label here.
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: gateway-system
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: envoy-gateway-system
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare-tunnel
+      ports:
+        - protocol: TCP
+          port: SERVICE_PORT
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: opentelemetry
+      ports:
+        - protocol: TCP
+          port: 4318

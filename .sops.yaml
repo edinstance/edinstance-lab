@@ -1,0 +1,3 @@
+creation_rules:
+  - path_regex: kubernetes/secrets/.*\.sops\.ya?ml$
+    age: age1s6v260f4z6za7df8t5x726h0q3uhnr89fkm2rjk3n3tk9xgfgsrqqj5dff

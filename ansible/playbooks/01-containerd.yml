@@ -32,7 +32,7 @@
     - name: Enable containerd CRI plugin
       ansible.builtin.replace:
         path: /etc/containerd/config.toml
-        regexp: '^disabled_plugins\s*=\s*\["cri"\]'
+        regexp: '^disabled_plugins\s*=\s*\[.*"cri".*\]'
         replace: 'disabled_plugins = []'
       notify: Restart containerd
 

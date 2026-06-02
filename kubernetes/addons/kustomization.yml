@@ -1,7 +1,8 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  # cert-manager, cloudflare-tunnel, metallb, and envoy-gateway remain
+  # cert-manager, metallb, and envoy-gateway remain
   # bootstrapped outside this Flux addons set; see gitops.md and helmfile.yaml.
+  - cloudflare-tunnel
   - observability
   - opentelemetry

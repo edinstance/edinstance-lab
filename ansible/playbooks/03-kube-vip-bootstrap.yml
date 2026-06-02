@@ -1,23 +1,29 @@
 ---
-- name: Install kube-vip static pod manifest
+- name: Install kube-vip bootstrap static pod manifest
   hosts: k8s_control_plane
   become: true
 
   tasks:
+    - name: Refuse to run on non-bootstrap control-plane nodes
+      ansible.builtin.assert:
+        that:
+          - inventory_hostname == (first_control_plane | default(groups['k8s_control_plane'][0]))
+        fail_msg: >-
+          This bootstrap playbook is only for the first control-plane node before
+          kubeadm init. Run 03-kube-vip.yml after other control-plane nodes join.
+
     - name: Check whether Kubernetes admin.conf exists
       ansible.builtin.stat:
         path: /etc/kubernetes/admin.conf
       register: kube_admin_conf
 
-    - name: Refuse to continue if admin.conf is missing or not a file
+    - name: Refuse if admin.conf already exists as a directory
       ansible.builtin.assert:
         that:
-          - kube_admin_conf.stat.exists
-          - kube_admin_conf.stat.isreg
+          - not kube_admin_conf.stat.exists or kube_admin_conf.stat.isreg
         fail_msg: >-
-          /etc/kubernetes/admin.conf does not exist or is not a regular file.
-          Run kubeadm init/join first. Installing kube-vip too early can cause
-          kubelet to create /etc/kubernetes/admin.conf as a directory.
+          /etc/kubernetes/admin.conf exists but is not a regular file. Remove
+          it before bootstrapping so kubeadm can create the real admin.conf.
 
     - name: Create Kubernetes static pod manifest directory
       ansible.builtin.file:
@@ -67,7 +73,7 @@
         kube_vip_interface: "{{ ansible_facts.default_ipv4.interface }}"
       when: kube_vip_interface is not defined
 
-    - name: Generate kube-vip static pod manifest
+    - name: Generate kube-vip bootstrap static pod manifest
       ansible.builtin.shell: |
         set -euo pipefail
         tmp_manifest="$(mktemp)"
@@ -85,6 +91,11 @@
           rm -f "$tmp_manifest"
           echo "kube-vip manifest generation produced an empty file" >&2
           exit 1
+        fi
+
+        if grep -q "path: /etc/kubernetes/admin.conf" "$tmp_manifest" &&
+          ! grep -q "type: File" "$tmp_manifest"; then
+          sed -i "/path: \\/etc\\/kubernetes\\/admin.conf/a\\          type: File" "$tmp_manifest"
         fi
 
         mv "$tmp_manifest" /etc/kubernetes/manifests/kube-vip.yaml

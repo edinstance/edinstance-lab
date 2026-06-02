@@ -137,17 +137,35 @@ run ansible "${ANSIBLE_BECOME_ARGS[@]}" -i "$INVENTORY" k8s_nodes -m ping
 
 log "Removing Kubernetes, CNI, etcd, kubelet, and Longhorn state from all nodes"
 run ansible "${ANSIBLE_BECOME_ARGS[@]}" -i "$INVENTORY" k8s_nodes --become -m shell -a '
-set -eu
-kubeadm reset -f || true
-systemctl stop kubelet || true
-systemctl stop containerd || true
-rm -rf /etc/kubernetes
-rm -rf /var/lib/etcd
-rm -rf /var/lib/kubelet
-rm -rf /etc/cni/net.d
-rm -rf /var/lib/cni
-rm -rf /var/run/cilium
-rm -rf /var/lib/longhorn
+set -u
+timeout 30s systemctl stop kubelet || true
+if command -v crictl >/dev/null 2>&1; then
+  timeout 30s crictl stopp $(crictl pods -q 2>/dev/null) 2>/dev/null || true
+  timeout 30s crictl rmp -f $(crictl pods -q 2>/dev/null) 2>/dev/null || true
+fi
+timeout 30s systemctl stop containerd || true
+timeout 2m kubeadm reset -f --cri-socket unix:///run/containerd/containerd.sock || true
+if command -v findmnt >/dev/null 2>&1; then
+  while IFS= read -r mountpoint; do
+    [ -n "$mountpoint" ] || continue
+    timeout 10s umount -l "$mountpoint" || true
+  done <<EOF
+$(findmnt -R /var/run/cilium -n -o TARGET 2>/dev/null | sort -r)
+EOF
+fi
+timeout 30s rm -rf /etc/kubernetes || true
+timeout 30s rm -rf /var/lib/etcd || true
+timeout 30s rm -rf /var/lib/kubelet || true
+timeout 2m rm -rf /run/containerd || true
+timeout 2m rm -rf /var/lib/containerd || true
+timeout 30s rm -rf /etc/cni/net.d || true
+timeout 30s rm -rf /var/lib/cni || true
+if [ -d /var/run/cilium ]; then
+  find /var/run/cilium -mindepth 1 -maxdepth 1 ! -name cgroupv2 -exec rm -rf {} + 2>/dev/null || true
+  rmdir /var/run/cilium/cgroupv2 2>/dev/null || true
+  rmdir /var/run/cilium 2>/dev/null || true
+fi
+timeout 2m rm -rf /var/lib/longhorn || true
 ip link delete cilium_host 2>/dev/null || true
 ip link delete cilium_net 2>/dev/null || true
 ip link delete cilium_vxlan 2>/dev/null || true
@@ -167,12 +185,32 @@ run ansible-playbook "${ANSIBLE_BECOME_ARGS[@]}" -i "$INVENTORY" ansible/playboo
 log "Setting node hostnames from inventory names"
 run ansible "${ANSIBLE_BECOME_ARGS[@]}" -i "$INVENTORY" k8s_nodes --become -m hostname -a "name={{ inventory_hostname }}"
 
-log "Installing kube-vip static pod manifests"
-run ansible-playbook "${ANSIBLE_BECOME_ARGS[@]}" -i "$INVENTORY" ansible/playbooks/03-kube-vip.yml
+log "Installing kube-vip bootstrap static pod manifest on first control-plane node"
+run ansible-playbook "${ANSIBLE_BECOME_ARGS[@]}" -i "$INVENTORY" ansible/playbooks/03-kube-vip-bootstrap.yml \
+  --limit "$FIRST_CONTROL_PLANE" \
+  -e "first_control_plane=$FIRST_CONTROL_PLANE"
 
 log "Copying kubeadm config to first control-plane node"
 run ansible "${ANSIBLE_BECOME_ARGS[@]}" -i "$INVENTORY" "$FIRST_CONTROL_PLANE" --become -m copy \
   -a "src=$ROOT_DIR/kubernetes/bootstrap/kubeadm-config.yml dest=/tmp/kubeadm-config.yml mode=0644"
+
+log "Ensuring first control-plane API port is free before kubeadm init"
+run ansible "${ANSIBLE_BECOME_ARGS[@]}" -i "$INVENTORY" "$FIRST_CONTROL_PLANE" --become -m shell -a '
+set -u
+if command -v ss >/dev/null 2>&1; then
+  ss -H -ltnp "sport = :6443" || true
+fi
+if command -v crictl >/dev/null 2>&1; then
+  crictl ps -a --name kube-apiserver -q 2>/dev/null | xargs -r crictl rm -f 2>/dev/null || true
+fi
+if command -v ctr >/dev/null 2>&1; then
+  ctr --namespace k8s.io tasks ls 2>/dev/null | awk "/kube-apiserver/ {print \$1}" | xargs -r -n1 ctr --namespace k8s.io tasks kill --signal SIGKILL 2>/dev/null || true
+  ctr --namespace k8s.io containers ls 2>/dev/null | awk "/kube-apiserver/ {print \$1}" | xargs -r -n1 ctr --namespace k8s.io containers rm 2>/dev/null || true
+fi
+if command -v fuser >/dev/null 2>&1; then
+  fuser -k 6443/tcp 2>/dev/null || true
+fi
+'
 
 log "Initializing first control-plane node"
 run ansible "${ANSIBLE_BECOME_ARGS[@]}" -i "$INVENTORY" "$FIRST_CONTROL_PLANE" --become -m command \
@@ -200,19 +238,27 @@ run kubectl -n kube-system rollout status ds/cilium --timeout=10m
 
 if [ "${#JOIN_CONTROL_PLANES[@]}" -gt 0 ]; then
   log "Generating control-plane join command"
-  JOIN_COMMAND="$(
-    ansible "${ANSIBLE_BECOME_ARGS[@]}" -i "$INVENTORY" "$FIRST_CONTROL_PLANE" --become -m shell -a '
-set -euo pipefail
-join_cmd="$(kubeadm token create --print-join-command)"
-cert_key="$(kubeadm init phase upload-certs --upload-certs 2>/dev/null | tail -n 1)"
-printf "%s --control-plane --certificate-key %s\n" "$join_cmd" "$cert_key"
-' | awk '/kubeadm join / {print; exit}'
-  )"
+  JOIN_OUTPUT_FILE="$ROOT_DIR/.tmp/join-output.txt"
+  run ansible "${ANSIBLE_BECOME_ARGS[@]}" -i "$INVENTORY" "$FIRST_CONTROL_PLANE" --become -m shell -a '
+set -eu
+echo "JOIN:"
+kubeadm token create --print-join-command
+echo "CERT:"
+kubeadm init phase upload-certs --upload-certs
+' | tee "$JOIN_OUTPUT_FILE"
+  JOIN_BASE="$(sed -n "s/.*\\(kubeadm join .*$\\)/\\1/p" "$JOIN_OUTPUT_FILE" | head -1)"
+  CERT_KEY="$(awk "/^[a-f0-9]{64}$/ {print; exit}" "$JOIN_OUTPUT_FILE")"
+  [ -n "$JOIN_BASE" ] || die "Failed to generate kubeadm join base command"
+  [ -n "$CERT_KEY" ] || die "Failed to generate kubeadm certificate key"
+  JOIN_COMMAND="$JOIN_BASE --control-plane --certificate-key $CERT_KEY"
   [ -n "$JOIN_COMMAND" ] || die "Failed to generate control-plane join command"
+  printf 'Join command: %s\n' "$JOIN_COMMAND"
 
   for host in "${JOIN_CONTROL_PLANES[@]}"; do
     log "Joining control-plane node: $host"
     run ansible "${ANSIBLE_BECOME_ARGS[@]}" -i "$INVENTORY" "$host" --become -m shell -a "$JOIN_COMMAND"
+    log "Installing kube-vip static pod manifest on joined control-plane node: $host"
+    run ansible-playbook "${ANSIBLE_BECOME_ARGS[@]}" -i "$INVENTORY" ansible/playbooks/03-kube-vip.yml --limit "$host"
   done
 fi
 

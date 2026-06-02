@@ -98,6 +98,7 @@ for path in \
   ansible/playbooks/00-os-prereqs.yml \
   ansible/playbooks/01-containerd.yml \
   ansible/playbooks/02-kubernetes-packages.yml \
+  ansible/playbooks/03-kube-vip-bootstrap.yml \
   ansible/playbooks/03-kube-vip.yml \
   ansible/playbooks/04-flux-bootstrap.yml \
   kubernetes/bootstrap/kubeadm-config.yml \

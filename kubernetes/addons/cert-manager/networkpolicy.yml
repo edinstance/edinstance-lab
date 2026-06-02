@@ -56,6 +56,35 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
+  name: allow-kubernetes-api-egress
+  namespace: cert-manager
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 10.96.0.0/12
+      ports:
+        - protocol: TCP
+          port: 443
+    - to:
+        - ipBlock:
+            cidr: 192.168.2.80/32
+        - ipBlock:
+            cidr: 192.168.2.10/32
+        - ipBlock:
+            cidr: 192.168.2.11/32
+        - ipBlock:
+            cidr: 192.168.2.12/32
+      ports:
+        - protocol: TCP
+          port: 6443
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
   name: allow-kube-apiserver-to-webhook
   namespace: cert-manager
 spec:

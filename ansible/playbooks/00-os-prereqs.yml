@@ -22,6 +22,21 @@
         update_cache: true
         lock_timeout: 300
 
+    - name: Install Kubernetes and Longhorn host prerequisites
+      ansible.builtin.apt:
+        name:
+          - open-iscsi
+          - nfs-common
+          - util-linux
+        state: present
+        lock_timeout: 300
+
+    - name: Ensure open-iscsi is enabled and running
+      ansible.builtin.systemd:
+        name: iscsid
+        enabled: true
+        state: started
+
     - name: Upgrade packages
       ansible.builtin.apt:
         upgrade: dist

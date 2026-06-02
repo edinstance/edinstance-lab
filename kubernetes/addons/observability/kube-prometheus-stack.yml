@@ -20,6 +20,7 @@ spec:
       retries: 3
   upgrade:
     timeout: 15m
+    force: true
     remediation:
       retries: 3
   targetNamespace: monitoring

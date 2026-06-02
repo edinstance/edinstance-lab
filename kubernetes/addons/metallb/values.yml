@@ -3,3 +3,4 @@ controller:
 
 speaker:
   enabled: true
+  ignoreExcludeLB: true

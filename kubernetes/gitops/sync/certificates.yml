@@ -1,0 +1,20 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: certificates
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: secrets
+  interval: 10m
+  path: ./kubernetes/addons/cert-manager
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: edinstance-lab
+  timeout: 5m
+  wait: false
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age

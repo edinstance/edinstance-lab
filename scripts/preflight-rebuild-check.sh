@@ -24,7 +24,6 @@ Environment overrides:
   ASK_BECOME_PASS=1
   FLUX_GIT_IDENTITY_FILE=/path/to/deploy_key
   SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt
-  GRAFANA_ADMIN_PASSWORD=...
 USAGE
 }
 
@@ -152,13 +151,12 @@ if [ "$CHECK_FLUX" = "1" ]; then
 
   FLUX_GIT_IDENTITY_FILE="${FLUX_GIT_IDENTITY_FILE:-}"
   SOPS_AGE_KEY_FILE="${SOPS_AGE_KEY_FILE:-$HOME/.config/sops/age/keys.txt}"
-  GRAFANA_ADMIN_PASSWORD="${GRAFANA_ADMIN_PASSWORD:-}"
 
   [ -n "$FLUX_GIT_IDENTITY_FILE" ] || fail "FLUX_GIT_IDENTITY_FILE is required with --with-flux"
   [ -f "$FLUX_GIT_IDENTITY_FILE" ] || fail "Flux deploy key not found: $FLUX_GIT_IDENTITY_FILE"
   [ -f "$FLUX_GIT_IDENTITY_FILE.pub" ] || fail "Flux deploy public key not found: $FLUX_GIT_IDENTITY_FILE.pub"
   [ -f "$SOPS_AGE_KEY_FILE" ] || fail "SOPS age key not found: $SOPS_AGE_KEY_FILE"
-  [ -n "$GRAFANA_ADMIN_PASSWORD" ] || fail "GRAFANA_ADMIN_PASSWORD is required with --with-flux"
+  [ -f kubernetes/secrets/grafana-admin.sops.yml ] || fail "SOPS Grafana admin secret is missing"
 
   pass "Flux bootstrap inputs are present"
 fi

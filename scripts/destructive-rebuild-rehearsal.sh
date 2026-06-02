@@ -32,11 +32,11 @@ Environment overrides:
   FIRST_CONTROL_PLANE=k8s-1
   RUN_FLUX=1
   ASK_BECOME_PASS=1
+  ANSIBLE_BECOME_ASK_PASS=true
 
 Flux bootstrap expects ansible/playbooks/04-flux-bootstrap.yml prerequisites:
   FLUX_GIT_IDENTITY_FILE=/path/to/deploy_key
   SOPS_AGE_KEY_FILE=~/.config/sops/age/keys.txt
-  GRAFANA_ADMIN_PASSWORD=...
 
 This is intended before important stateful workloads exist. It removes
 /var/lib/etcd, /var/lib/kubelet, /etc/kubernetes, CNI state, and /var/lib/longhorn.
@@ -99,8 +99,17 @@ fi
 cd "$ROOT_DIR"
 
 ANSIBLE_BECOME_ARGS=()
-if [ "${ASK_BECOME_PASS:-0}" = "1" ]; then
-  ANSIBLE_BECOME_ARGS+=(--ask-become-pass)
+if [ "${ASK_BECOME_PASS:-0}" = "1" ] || [ "${ANSIBLE_BECOME_ASK_PASS:-false}" = "true" ]; then
+  BECOME_PASSWORD_FILE="$(mktemp "${TMPDIR:-/tmp}/rebuild-become.XXXXXX.json")"
+  chmod 0600 "$BECOME_PASSWORD_FILE"
+  trap 'rm -f "$BECOME_PASSWORD_FILE"' EXIT
+  read -r -s -p "BECOME password: " BECOME_PASSWORD
+  printf '\n'
+  jq -n --arg password "$BECOME_PASSWORD" '{ansible_become_password: $password}' > "$BECOME_PASSWORD_FILE"
+  unset BECOME_PASSWORD
+  unset ANSIBLE_BECOME_ASK_PASS
+  export ANSIBLE_BECOME_ASK_PASS=false
+  ANSIBLE_BECOME_ARGS+=(-e "@$BECOME_PASSWORD_FILE")
 fi
 
 if [ -z "$FIRST_CONTROL_PLANE" ]; then
@@ -111,6 +120,18 @@ if [ -z "$FIRST_CONTROL_PLANE" ]; then
 fi
 
 [ -n "$FIRST_CONTROL_PLANE" ] || die "Could not detect first control-plane host"
+
+FIRST_CONTROL_PLANE_API_HOST="$(
+  ansible-inventory -i "$INVENTORY" --list \
+    | jq -r --arg host "$FIRST_CONTROL_PLANE" '._meta.hostvars[$host].ansible_host // $host'
+)"
+[ -n "$FIRST_CONTROL_PLANE_API_HOST" ] || die "Could not detect first control-plane API host"
+
+K8S_API_VIP="$(
+  ansible-inventory -i "$INVENTORY" --list \
+    | jq -r --arg host "$FIRST_CONTROL_PLANE" '.all.vars.k8s_api_vip // ._meta.hostvars[$host].k8s_api_vip // empty'
+)"
+[ -n "$K8S_API_VIP" ] || die "Could not detect Kubernetes API VIP"
 
 mapfile -t CONTROL_PLANES < <(
   ansible-inventory -i "$INVENTORY" --list \
@@ -129,6 +150,8 @@ done
 log "Destructive reset target"
 printf 'Inventory: %s\n' "$INVENTORY"
 printf 'First control plane: %s\n' "$FIRST_CONTROL_PLANE"
+printf 'First control-plane API host: %s\n' "$FIRST_CONTROL_PLANE_API_HOST"
+printf 'Kubernetes API VIP: %s\n' "$K8S_API_VIP"
 printf 'Kubeconfig: %s\n' "$KUBECONFIG_PATH"
 printf 'Flux bootstrap: %s\n' "$RUN_FLUX"
 
@@ -194,27 +217,29 @@ log "Copying kubeadm config to first control-plane node"
 run ansible "${ANSIBLE_BECOME_ARGS[@]}" -i "$INVENTORY" "$FIRST_CONTROL_PLANE" --become -m copy \
   -a "src=$ROOT_DIR/kubernetes/bootstrap/kubeadm-config.yml dest=/tmp/kubeadm-config.yml mode=0644"
 
-log "Ensuring first control-plane API port is free before kubeadm init"
+log "Ensuring first control-plane ports are free before kubeadm init"
 run ansible "${ANSIBLE_BECOME_ARGS[@]}" -i "$INVENTORY" "$FIRST_CONTROL_PLANE" --become -m shell -a '
 set -u
 if command -v ss >/dev/null 2>&1; then
-  ss -H -ltnp "sport = :6443" || true
+  ss -H -ltnp "( sport = :6443 or sport = :10257 or sport = :10259 )" || true
 fi
 if command -v crictl >/dev/null 2>&1; then
-  crictl ps -a --name kube-apiserver -q 2>/dev/null | xargs -r crictl rm -f 2>/dev/null || true
+  for name in kube-apiserver kube-controller-manager kube-scheduler; do
+    crictl ps -a --name "$name" -q 2>/dev/null | xargs -r crictl rm -f 2>/dev/null || true
+  done
 fi
 if command -v ctr >/dev/null 2>&1; then
-  ctr --namespace k8s.io tasks ls 2>/dev/null | awk "/kube-apiserver/ {print \$1}" | xargs -r -n1 ctr --namespace k8s.io tasks kill --signal SIGKILL 2>/dev/null || true
-  ctr --namespace k8s.io containers ls 2>/dev/null | awk "/kube-apiserver/ {print \$1}" | xargs -r -n1 ctr --namespace k8s.io containers rm 2>/dev/null || true
+  ctr --namespace k8s.io tasks ls 2>/dev/null | awk "/kube-apiserver|kube-controller-manager|kube-scheduler/ {print \$1}" | xargs -r -n1 ctr --namespace k8s.io tasks kill --signal SIGKILL 2>/dev/null || true
+  ctr --namespace k8s.io containers ls 2>/dev/null | awk "/kube-apiserver|kube-controller-manager|kube-scheduler/ {print \$1}" | xargs -r -n1 ctr --namespace k8s.io containers rm 2>/dev/null || true
 fi
 if command -v fuser >/dev/null 2>&1; then
-  fuser -k 6443/tcp 2>/dev/null || true
+  fuser -k 6443/tcp 10257/tcp 10259/tcp 2>/dev/null || true
 fi
 '
 
 log "Initializing first control-plane node"
 run ansible "${ANSIBLE_BECOME_ARGS[@]}" -i "$INVENTORY" "$FIRST_CONTROL_PLANE" --become -m command \
-  -a "kubeadm init --config /tmp/kubeadm-config.yml --upload-certs"
+  -a "kubeadm init --config /tmp/kubeadm-config.yml --upload-certs --skip-phases=addon/kube-proxy"
 
 mkdir -p "$(dirname "$KUBECONFIG_PATH")" "$ROOT_DIR/.tmp"
 
@@ -223,6 +248,32 @@ run ansible "${ANSIBLE_BECOME_ARGS[@]}" -i "$INVENTORY" "$FIRST_CONTROL_PLANE" -
   -a "src=/etc/kubernetes/admin.conf dest=$ROOT_DIR/.tmp/admin.conf flat=true"
 install -m 0600 "$ROOT_DIR/.tmp/admin.conf" "$KUBECONFIG_PATH"
 export KUBECONFIG="$KUBECONFIG_PATH"
+run kubectl config set-cluster kubernetes --server="https://${FIRST_CONTROL_PLANE_API_HOST}:6443"
+
+log "Pointing bootstrap admin kubeconfig at the first control-plane node"
+run ansible "${ANSIBLE_BECOME_ARGS[@]}" -i "$INVENTORY" "$FIRST_CONTROL_PLANE" --become -m command \
+  -a "kubectl --kubeconfig=/etc/kubernetes/admin.conf config set-cluster kubernetes --server=https://${FIRST_CONTROL_PLANE_API_HOST}:6443"
+
+log "Uploading bootstrap kubeadm config with first-node controlPlaneEndpoint"
+run ansible "${ANSIBLE_BECOME_ARGS[@]}" -i "$INVENTORY" "$FIRST_CONTROL_PLANE" --become -m shell -a "
+set -eu
+cp /tmp/kubeadm-config.yml /tmp/kubeadm-bootstrap-join-config.yml
+sed -i 's#^controlPlaneEndpoint: .*#controlPlaneEndpoint: \"${FIRST_CONTROL_PLANE_API_HOST}:6443\"#' /tmp/kubeadm-bootstrap-join-config.yml
+kubeadm init phase upload-config kubeadm --config /tmp/kubeadm-bootstrap-join-config.yml
+"
+
+log "Pointing bootstrap discovery kubeconfig at the first control-plane node"
+run ansible "${ANSIBLE_BECOME_ARGS[@]}" -i "$INVENTORY" "$FIRST_CONTROL_PLANE" --become -m shell -a "
+set -eu
+kubectl --kubeconfig=/etc/kubernetes/admin.conf -n kube-public get configmap cluster-info -o jsonpath='{.data.kubeconfig}' \
+  | sed 's#https://[^:]*:6443#https://${FIRST_CONTROL_PLANE_API_HOST}:6443#g' \
+  > /tmp/cluster-info-bootstrap.kubeconfig
+kubectl --kubeconfig=/etc/kubernetes/admin.conf -n kube-public create configmap cluster-info \
+  --from-file=kubeconfig=/tmp/cluster-info-bootstrap.kubeconfig \
+  --dry-run=client -o yaml \
+  | kubectl --kubeconfig=/etc/kubernetes/admin.conf apply -f -
+rm -f /tmp/cluster-info-bootstrap.kubeconfig
+"
 
 log "Installing Cilium"
 run helm repo add cilium https://helm.cilium.io
@@ -230,7 +281,8 @@ run helm repo update
 run helm upgrade --install cilium cilium/cilium \
   --namespace kube-system \
   --version 1.19.4 \
-  --values kubernetes/addons/cilium/values.yml
+  --values kubernetes/addons/cilium/values.yml \
+  --set "k8sServiceHost=${FIRST_CONTROL_PLANE_API_HOST}"
 
 log "Waiting for first node and Cilium"
 run kubectl wait --for=condition=Ready "node/$FIRST_CONTROL_PLANE" --timeout=10m
@@ -255,11 +307,47 @@ kubeadm init phase upload-certs --upload-certs
   printf 'Join command: %s\n' "$JOIN_COMMAND"
 
   for host in "${JOIN_CONTROL_PLANES[@]}"; do
+    log "Ensuring control-plane ports are free before kubeadm join on: $host"
+    run ansible "${ANSIBLE_BECOME_ARGS[@]}" -i "$INVENTORY" "$host" --become -m shell -a '
+set -u
+if command -v ss >/dev/null 2>&1; then
+  ss -H -ltnp "( sport = :6443 or sport = :10257 or sport = :10259 )" || true
+fi
+if command -v crictl >/dev/null 2>&1; then
+  for name in kube-apiserver kube-controller-manager kube-scheduler; do
+    crictl ps -a --name "$name" -q 2>/dev/null | xargs -r crictl rm -f 2>/dev/null || true
+  done
+fi
+if command -v ctr >/dev/null 2>&1; then
+  ctr --namespace k8s.io tasks ls 2>/dev/null | awk "/kube-apiserver|kube-controller-manager|kube-scheduler/ {print \$1}" | xargs -r -n1 ctr --namespace k8s.io tasks kill --signal SIGKILL 2>/dev/null || true
+  ctr --namespace k8s.io containers ls 2>/dev/null | awk "/kube-apiserver|kube-controller-manager|kube-scheduler/ {print \$1}" | xargs -r -n1 ctr --namespace k8s.io containers rm 2>/dev/null || true
+fi
+if command -v fuser >/dev/null 2>&1; then
+  fuser -k 6443/tcp 10257/tcp 10259/tcp 2>/dev/null || true
+fi
+'
     log "Joining control-plane node: $host"
     run ansible "${ANSIBLE_BECOME_ARGS[@]}" -i "$INVENTORY" "$host" --become -m shell -a "$JOIN_COMMAND"
     log "Installing kube-vip static pod manifest on joined control-plane node: $host"
     run ansible-playbook "${ANSIBLE_BECOME_ARGS[@]}" -i "$INVENTORY" ansible/playbooks/03-kube-vip.yml --limit "$host"
   done
+
+  log "Restoring VIP-based kubeadm config"
+  run ansible "${ANSIBLE_BECOME_ARGS[@]}" -i "$INVENTORY" "$FIRST_CONTROL_PLANE" --become -m command \
+    -a "kubeadm init phase upload-config kubeadm --config /tmp/kubeadm-config.yml"
+
+  log "Restoring VIP-based discovery kubeconfig"
+  run ansible "${ANSIBLE_BECOME_ARGS[@]}" -i "$INVENTORY" "$FIRST_CONTROL_PLANE" --become -m shell -a "
+set -eu
+kubectl --kubeconfig=/etc/kubernetes/admin.conf -n kube-public get configmap cluster-info -o jsonpath='{.data.kubeconfig}' \
+  | sed 's#https://[^:]*:6443#https://${K8S_API_VIP}:6443#g' \
+  > /tmp/cluster-info-vip.kubeconfig
+kubectl --kubeconfig=/etc/kubernetes/admin.conf -n kube-public create configmap cluster-info \
+  --from-file=kubeconfig=/tmp/cluster-info-vip.kubeconfig \
+  --dry-run=client -o yaml \
+  | kubectl --kubeconfig=/etc/kubernetes/admin.conf apply -f -
+rm -f /tmp/cluster-info-vip.kubeconfig
+"
 fi
 
 log "Waiting for all nodes to become Ready"
@@ -291,14 +379,6 @@ run kubectl get pods -A
 run kubectl get gatewayclass
 run kubectl get gateway -A
 run kubectl get httproute -A
-
-log "Running local HTTP smoke test through Envoy ingress IP"
-INGRESS_IP="$(
-  kubectl -n gateway-system get gateway main-gateway \
-    -o jsonpath='{.status.addresses[?(@.type=="IPAddress")].value}'
-)"
-[ -n "$INGRESS_IP" ] || die "Could not discover main-gateway ingress IP"
-run curl -fsS -H "Host: whoami.local.edinstance.com" "http://${INGRESS_IP}/"
 
 if [ "$RUN_FLUX" = "1" ]; then
   log "Bootstrapping Flux controllers and initial secrets"

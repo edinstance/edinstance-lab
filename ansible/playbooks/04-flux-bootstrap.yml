@@ -8,8 +8,6 @@
     monitoring_namespace: monitoring
     flux_git_identity_file: "{{ lookup('env', 'FLUX_GIT_IDENTITY_FILE') }}"
     sops_age_key_file: "{{ lookup('env', 'SOPS_AGE_KEY_FILE') | default(lookup('env', 'HOME') + '/.config/sops/age/keys.txt', true) }}"
-    grafana_admin_user: "{{ lookup('env', 'GRAFANA_ADMIN_USER') | default('admin', true) }}"
-    grafana_admin_password: "{{ lookup('env', 'GRAFANA_ADMIN_PASSWORD') }}"
     github_ssh_fingerprints:
       - SHA256:nThbg6kXUpJWGl7E1IGOCspRomTxdCARLviKw6E5SY8
       - SHA256:p2QAMXNIC1TJYWeIOttrVc98/R1BUFWu3/LiyKgUfQM
@@ -77,16 +75,6 @@
           --dry-run=client -o yaml | kubectl apply -f -
       changed_when: true
       when: flux_git_identity_file | length > 0
-
-    - name: Create bootstrap Grafana admin secret
-      ansible.builtin.shell: |
-        kubectl -n {{ monitoring_namespace }} create secret generic grafana-admin \
-          --from-literal=admin-user={{ grafana_admin_user | quote }} \
-          --from-literal=admin-password={{ grafana_admin_password | quote }} \
-          --dry-run=client -o yaml | kubectl apply -f -
-      changed_when: true
-      no_log: true
-      when: grafana_admin_password | length > 0
 
     - name: Apply Flux repository and root kustomization manifests
       ansible.builtin.command:

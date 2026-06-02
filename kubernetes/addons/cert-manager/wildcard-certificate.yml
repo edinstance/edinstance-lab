@@ -9,7 +9,7 @@ metadata:
 spec:
   secretName: local-edinstance-uk-wildcard-tls
   issuerRef:
-    name: letsencrypt-staging-cloudflare
+    name: letsencrypt-prod-cloudflare
     kind: ClusterIssuer
   dnsNames:
     - local.edinstance.uk

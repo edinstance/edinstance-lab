@@ -7,8 +7,19 @@ spec:
   provider:
     type: Kubernetes
     kubernetes:
+      envoyDeployment:
+        replicas: 3
+        pod:
+          topologySpreadConstraints:
+            - maxSkew: 1
+              topologyKey: kubernetes.io/hostname
+              whenUnsatisfiable: DoNotSchedule
+              labelSelector:
+                matchLabels:
+                  gateway.envoyproxy.io/owning-gateway-name: main-gateway
+                  gateway.envoyproxy.io/owning-gateway-namespace: gateway-system
       envoyService:
-        externalTrafficPolicy: Cluster
+        externalTrafficPolicy: Local
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass

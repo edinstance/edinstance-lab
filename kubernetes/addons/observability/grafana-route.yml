@@ -9,6 +9,7 @@ spec:
       namespace: gateway-system
   hostnames:
     - grafana.local.edinstance.com
+    - grafana.lab.edinstance.com
   rules:
     - backendRefs:
         - name: kube-prometheus-stack-grafana

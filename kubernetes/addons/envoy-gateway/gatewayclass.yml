@@ -10,6 +10,17 @@ spec:
       envoyDeployment:
         replicas: 3
         pod:
+          affinity:
+            podAntiAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - labelSelector:
+                    matchLabels:
+                      app.kubernetes.io/component: proxy
+                      app.kubernetes.io/managed-by: envoy-gateway
+                      app.kubernetes.io/name: envoy
+                      gateway.envoyproxy.io/owning-gateway-name: main-gateway
+                      gateway.envoyproxy.io/owning-gateway-namespace: gateway-system
+                  topologyKey: kubernetes.io/hostname
           topologySpreadConstraints:
             - maxSkew: 1
               topologyKey: kubernetes.io/hostname

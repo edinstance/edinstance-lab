@@ -8,8 +8,8 @@ spec:
     - name: main-gateway
       namespace: gateway-system
   hostnames:
-    - grafana.local.edinstance.com
-    - grafana.lab.edinstance.com
+    - grafana.local.edinstance.uk
+    - grafana.edinstance.uk
   rules:
     - backendRefs:
         - name: monitoring-kube-prometheus-stack-grafana

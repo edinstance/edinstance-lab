@@ -19,7 +19,17 @@ spec:
     - name: http-local
       protocol: HTTP
       port: 80
-      hostname: "*.local.edinstance.com"
+      hostname: "*.local.edinstance.uk"
+      allowedRoutes:
+        namespaces:
+          from: Selector
+          selector:
+            matchLabels:
+              gateway.edinstance.com/route-access: "true"
+    - name: http-public
+      protocol: HTTP
+      port: 80
+      hostname: "*.edinstance.uk"
       allowedRoutes:
         namespaces:
           from: Selector
@@ -29,7 +39,7 @@ spec:
     - name: https-local
       protocol: HTTPS
       port: 443
-      hostname: "*.local.edinstance.com"
+      hostname: "*.local.edinstance.uk"
       tls:
         mode: Terminate
         certificateRefs:

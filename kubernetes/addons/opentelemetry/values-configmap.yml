@@ -6,7 +6,7 @@ metadata:
 data:
   values.yml: |
     mode: deployment
-    replicaCount: 2
+    replicaCount: 1
 
     image:
       repository: otel/opentelemetry-collector-contrib
@@ -26,11 +26,11 @@ data:
 
     resources:
       requests:
-        cpu: 100m
-        memory: 256Mi
+        cpu: 25m
+        memory: 128Mi
       limits:
-        cpu: 500m
-        memory: 512Mi
+        cpu: 250m
+        memory: 256Mi
 
     config:
       receivers:

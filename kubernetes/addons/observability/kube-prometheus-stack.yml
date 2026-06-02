@@ -15,9 +15,11 @@ spec:
         namespace: flux-system
   install:
     createNamespace: true
+    timeout: 15m
     remediation:
       retries: 3
   upgrade:
+    timeout: 15m
     remediation:
       retries: 3
   targetNamespace: monitoring

@@ -7,9 +7,21 @@ data:
   values.yml: |
     fullnameOverride: kube-prometheus-stack
 
+    prometheusOperator:
+      tls:
+        enabled: false
+      admissionWebhooks:
+        enabled: false
+        patch:
+          enabled: false
+        deployment:
+          tls:
+            enabled: false
+
     alertmanager:
+      enabled: false
       alertmanagerSpec:
-        replicas: 2
+        replicas: 1
         resources:
           requests:
             cpu: 50m
@@ -66,7 +78,23 @@ data:
             cpu: "1"
             memory: 3Gi
 
+    nodeExporter:
+      enabled: false
+
+    prometheus-node-exporter:
+      enabled: false
+
     kube-state-metrics:
+      livenessProbe:
+        initialDelaySeconds: 60
+        timeoutSeconds: 5
+        periodSeconds: 10
+        failureThreshold: 6
+      readinessProbe:
+        initialDelaySeconds: 30
+        timeoutSeconds: 5
+        periodSeconds: 10
+        failureThreshold: 6
       resources:
         requests:
           cpu: 25m
@@ -74,12 +102,3 @@ data:
         limits:
           cpu: 250m
           memory: 256Mi
-
-    prometheus-node-exporter:
-      resources:
-        requests:
-          cpu: 25m
-          memory: 32Mi
-        limits:
-          cpu: 250m
-          memory: 128Mi

@@ -1,6 +1,6 @@
 # TLS And cert-manager
 
-Use cert-manager with Let's Encrypt DNS-01 validation through Cloudflare for the local Envoy Gateway names under `*.local.edinstance.com`.
+Use cert-manager with Let's Encrypt DNS-01 validation through Cloudflare for the local Envoy Gateway names under `*.local.edinstance.uk`.
 
 DNS-01 is the right fit because the cluster uses Cloudflare Tunnel for public access and may not have direct inbound HTTP access from the internet. DNS validation only needs permission to create temporary TXT records in Cloudflare.
 
@@ -23,7 +23,7 @@ The chart is referenced from the cert-manager OCI registry in `helmfile.yaml`.
 
 ## Cloudflare API Token
 
-Create a Cloudflare API token with DNS edit access for the `edinstance.com` zone.
+Create a Cloudflare API token with DNS edit access for the `edinstance.uk` zone.
 
 Recommended minimum permissions:
 
@@ -35,7 +35,7 @@ Zone -> Zone -> Read
 Scope it only to:
 
 ```text
-edinstance.com
+edinstance.uk
 ```
 
 Store it as a SOPS-encrypted Kubernetes Secret named:
@@ -71,8 +71,14 @@ helm upgrade --install cert-manager oci://quay.io/jetstack/charts/cert-manager \
 ## Apply Cloudflare Secret
 
 ```bash
-sops --decrypt kubernetes/secrets/cloudflare-api-token.sops.yml | kubectl apply -f -
+cp kubernetes/secrets/cloudflare-api-token.example.yml /tmp/cloudflare-api-token.yml
+$EDITOR /tmp/cloudflare-api-token.yml
+sops --encrypt /tmp/cloudflare-api-token.yml > kubernetes/secrets/cloudflare-api-token.sops.yml
+rm /tmp/cloudflare-api-token.yml
 ```
+
+Then add `cloudflare-api-token.sops.yml` to `kubernetes/secrets/kustomization.yml`
+so Flux applies it through the SOPS-enabled `secrets` Kustomization.
 
 ## Apply Issuers
 
@@ -96,20 +102,22 @@ kubernetes/addons/cert-manager/wildcard-certificate.yml
 It requests:
 
 ```text
-local.edinstance.com
-*.local.edinstance.com
+local.edinstance.uk
+*.local.edinstance.uk
 ```
 
 and writes the TLS secret to:
 
 ```text
-gateway-system/local-edinstance-com-wildcard-tls
+gateway-system/local-edinstance-uk-wildcard-tls
 ```
 
-Apply it only after cert-manager and the Cloudflare API token are working:
+The certificate is included in the addons kustomization and is applied by Flux
+after the SOPS-managed Cloudflare API token exists.
 
 ```bash
-kubectl apply -f kubernetes/addons/cert-manager/wildcard-certificate.yml
+flux reconcile kustomization secrets -n flux-system --with-source
+flux reconcile kustomization addons -n flux-system --with-source
 ```
 
 Check:
@@ -121,17 +129,17 @@ kubectl get challenge,order -A
 
 ## Gateway TLS
 
-The current Gateway is HTTP-only. After the wildcard certificate exists, update Envoy Gateway to add HTTPS listeners that reference:
+The Gateway includes an HTTPS listener for local names that references:
 
 ```text
-local-edinstance-com-wildcard-tls
+local-edinstance-uk-wildcard-tls
 ```
 
-Keep HTTP during early bootstrap. Add HTTPS for local services when the
-certificate is ready.
+Keep HTTP enabled during bootstrap. The HTTPS listener becomes valid once
+cert-manager creates the referenced wildcard TLS secret.
 
 ## Public TLS
 
-Cloudflare handles browser-facing TLS for published `*.lab.edinstance.com`
+Cloudflare handles browser-facing TLS for published `*.lab.edinstance.uk`
 hostnames. The tunnel can send traffic to internal Kubernetes services over
 HTTP unless a service requires end-to-end TLS.

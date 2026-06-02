@@ -36,6 +36,16 @@ spec:
           selector:
             matchLabels:
               gateway.edinstance.com/route-access: "true"
+    - name: http-lab
+      protocol: HTTP
+      port: 80
+      hostname: "*.lab.edinstance.uk"
+      allowedRoutes:
+        namespaces:
+          from: Selector
+          selector:
+            matchLabels:
+              gateway.edinstance.com/route-access: "true"
     - name: https-local
       protocol: HTTPS
       port: 443
@@ -43,7 +53,7 @@ spec:
       tls:
         mode: Terminate
         certificateRefs:
-          - name: local-edinstance-com-wildcard-tls
+          - name: local-edinstance-uk-wildcard-tls
       allowedRoutes:
         namespaces:
           from: Selector

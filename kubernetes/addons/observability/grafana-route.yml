@@ -9,6 +9,7 @@ spec:
       namespace: gateway-system
   hostnames:
     - grafana.local.edinstance.uk
+    - grafana.lab.edinstance.uk
     - grafana.edinstance.uk
   rules:
     - backendRefs:

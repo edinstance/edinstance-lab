@@ -251,9 +251,13 @@ Cert-manager DNS-01 token:
 
 ```bash
 cp kubernetes/secrets/cloudflare-api-token.example.yml /tmp/cloudflare-api-token.yml
+$EDITOR /tmp/cloudflare-api-token.yml
 sops --encrypt /tmp/cloudflare-api-token.yml > kubernetes/secrets/cloudflare-api-token.sops.yml
 rm /tmp/cloudflare-api-token.yml
 ```
+
+Add `cloudflare-api-token.sops.yml` to `kubernetes/secrets/kustomization.yml`
+before reconciling Flux.
 
 Cloudflare Tunnel token:
 

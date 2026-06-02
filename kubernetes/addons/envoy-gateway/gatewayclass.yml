@@ -9,6 +9,10 @@ spec:
     kubernetes:
       envoyDeployment:
         replicas: 3
+        strategy:
+          rollingUpdate:
+            maxSurge: 0
+            maxUnavailable: 1
         pod:
           affinity:
             podAntiAffinity:

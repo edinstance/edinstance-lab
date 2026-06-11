@@ -1,0 +1,20 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: platform-api
+  namespace: flux-system
+spec:
+  dependsOn:
+    - name: platform-database
+  interval: 10m
+  path: ./kubernetes/platform/api
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: edinstance-lab
+  timeout: 5m
+  wait: true
+  decryption:
+    provider: sops
+    secretRef:
+      name: sops-age

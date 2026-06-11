@@ -79,10 +79,19 @@ data:
             memory: 3Gi
 
     nodeExporter:
-      enabled: false
+      enabled: true
 
     prometheus-node-exporter:
-      enabled: false
+      enabled: true
+      tolerations:
+        - operator: Exists
+      resources:
+        requests:
+          cpu: 25m
+          memory: 32Mi
+        limits:
+          cpu: 100m
+          memory: 128Mi
 
     kube-state-metrics:
       livenessProbe:

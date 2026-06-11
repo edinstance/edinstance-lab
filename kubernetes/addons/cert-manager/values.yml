@@ -5,6 +5,8 @@ replicaCount: 2
 
 webhook:
   replicaCount: 2
+  hostNetwork: true
+  securePort: 10260
 
 cainjector:
   replicaCount: 2

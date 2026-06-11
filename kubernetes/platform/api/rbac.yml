@@ -1,0 +1,105 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: platform-api-namespace-reconciler
+  labels:
+    app.kubernetes.io/name: platform-api
+    app.kubernetes.io/part-of: edinstance-platform
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - namespaces
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - patch
+      - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: platform-api-namespace-reconciler
+  labels:
+    app.kubernetes.io/name: platform-api
+    app.kubernetes.io/part-of: edinstance-platform
+subjects:
+  - kind: ServiceAccount
+    name: platform-api
+    namespace: platform-system
+roleRef:
+  kind: ClusterRole
+  name: platform-api-namespace-reconciler
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: platform-api-reconciler
+  namespace: apps
+  annotations:
+    platform.edinstance.uk/rbac-justification: "Resources are built from validated DB-backed AppSpec input and programmatic templates; hardened to read Deployment status, server-side apply managed objects, and delete managed runtime resources only."
+  labels:
+    app.kubernetes.io/name: platform-api
+    app.kubernetes.io/part-of: edinstance-platform
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+      - services
+    verbs:
+      - get
+      - list
+      - watch
+      - patch
+      - delete
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+    verbs:
+      - get
+      - list
+      - watch
+      - patch
+      - delete
+  - apiGroups:
+      - networking.k8s.io
+    resources:
+      - networkpolicies
+    verbs:
+      - get
+      - list
+      - watch
+      - patch
+      - delete
+  - apiGroups:
+      - gateway.networking.k8s.io
+    resources:
+      - httproutes
+    verbs:
+      - get
+      - list
+      - watch
+      - patch
+      - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: platform-api-reconciler
+  namespace: apps
+  labels:
+    app.kubernetes.io/name: platform-api
+    app.kubernetes.io/part-of: edinstance-platform
+subjects:
+  - kind: ServiceAccount
+    name: platform-api
+    namespace: platform-system
+roleRef:
+  kind: Role
+  name: platform-api-reconciler
+  apiGroup: rbac.authorization.k8s.io

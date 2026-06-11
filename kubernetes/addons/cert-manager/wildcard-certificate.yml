@@ -4,8 +4,8 @@ metadata:
   name: local-edinstance-uk-wildcard
   namespace: gateway-system
   annotations:
-    edinstance.com/note: "Certificate lives with the LAN-only Envoy Gateway resources in gateway-system."
-    edinstance.com/tls-guidance: "Uses the staging issuer during rehearsals; see tls.md before switching to production."
+    edinstance.uk/note: "Certificate lives with the LAN-only Envoy Gateway resources in gateway-system."
+    edinstance.uk/tls-guidance: "Uses the staging issuer during rehearsals; see tls.md before switching to production."
 spec:
   secretName: local-edinstance-uk-wildcard-tls
   issuerRef:

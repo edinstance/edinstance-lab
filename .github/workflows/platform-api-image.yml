@@ -1,0 +1,85 @@
+name: platform-api image
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - services/platform-api/**
+      - .github/workflows/platform-api-image.yml
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: platform-api-image-main
+  cancel-in-progress: true
+
+jobs:
+  build-push-update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        # Pinned to actions/checkout v6: https://github.com/actions/checkout/releases/tag/v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
+
+      - name: Set image metadata
+        id: meta
+        shell: bash
+        run: |
+          short_sha="$(git rev-parse --short HEAD)"
+          image="ghcr.io/${GITHUB_REPOSITORY}/platform-api:sha-${short_sha}"
+          echo "short_sha=${short_sha}" >> "$GITHUB_OUTPUT"
+          echo "image=${image}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+
+      - name: Build and push
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+        with:
+          context: services/platform-api
+          push: true
+          tags: ${{ steps.meta.outputs.image }}
+          cache-from: type=gha,scope=platform-api
+          cache-to: type=gha,mode=max,scope=platform-api
+
+      - name: Update deployment image
+        shell: bash
+        run: |
+          image="${{ steps.meta.outputs.image }}"
+          file="kubernetes/platform/api/deployment.yml"
+          perl -0pi -e "s#image: ghcr\\.io/edinstance/edinstance-lab/platform-api:sha-[A-Za-z0-9._-]+#image: ${image}#" "$file"
+          if ! grep -q "image: ${image}" "$file"; then
+            echo "::error::Failed to update ${file} to ${image}"
+            exit 1
+          fi
+          git diff -- "$file"
+
+      - name: Commit deployment image tag
+        shell: bash
+        run: |
+          if git diff --quiet -- kubernetes/platform/api/deployment.yml; then
+            echo "Deployment already uses ${{ steps.meta.outputs.image }}"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add kubernetes/platform/api/deployment.yml
+          git commit -m "Deploy platform-api sha-${{ steps.meta.outputs.short_sha }}"
+          git remote set-url origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git -c http.extraheader="AUTHORIZATION: bearer ${{ secrets.GITHUB_TOKEN }}" push origin "HEAD:${GITHUB_REF_NAME}"

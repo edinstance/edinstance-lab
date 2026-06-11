@@ -23,7 +23,7 @@ rebuilds the v1 rehearsal cluster:
   5. Cilium install
   6. additional control-plane joins
   7. helmfile addon sync
-  8. Gateway/MetalLB/whoami smoke test
+  8. Gateway/MetalLB status check
   9. optional Flux bootstrap with --with-flux
 
 Environment overrides:
@@ -368,10 +368,6 @@ kubectl -n kube-system rollout status deployment/metrics-server --timeout=5m || 
 kubectl -n metallb-system rollout status deployment/metallb-controller --timeout=5m
 kubectl -n metallb-system rollout status daemonset/metallb-speaker --timeout=5m
 kubectl -n gateway-system rollout status deployment/envoy-gateway --timeout=5m
-
-log "Deploying whoami smoke app"
-run kubectl apply -k apps
-run kubectl -n apps rollout status deployment/whoami --timeout=5m
 
 log "Checking Gateway and HTTPRoute status"
 run kubectl get nodes -o wide

@@ -1,0 +1,34 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: platform-db
+  namespace: platform-db
+  labels:
+    app.kubernetes.io/name: platform-db
+    app.kubernetes.io/part-of: edinstance-platform
+    app.kubernetes.io/managed-by: flux
+spec:
+  instances: 3
+  imageName: ghcr.io/cloudnative-pg/postgresql:17
+  primaryUpdateStrategy: unsupervised
+  bootstrap:
+    initdb:
+      database: app
+      owner: app
+      secret:
+        name: platform-db-app
+  storage:
+    size: 20Gi
+    storageClass: longhorn
+  monitoring:
+    enablePodMonitor: true
+  affinity:
+    enablePodAntiAffinity: true
+    topologyKey: kubernetes.io/hostname
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 2Gi

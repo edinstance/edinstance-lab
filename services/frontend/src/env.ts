@@ -11,7 +11,8 @@ function readUrl(value: string | undefined, fallback: string): string {
     const url = new URL(rawValue)
     return url.toString().replace(/\/$/, '')
   } catch {
-    throw new Error(`Invalid VITE_PLATFORM_API_URL: ${rawValue}`)
+    console.debug('VITE_PLATFORM_API_URL is not a parseable URL (value redacted, length %d)', rawValue.length)
+    throw new Error('Invalid VITE_PLATFORM_API_URL')
   }
 }
 

@@ -21,7 +21,7 @@ func TestVerifyJWT(t *testing.T) {
 	server := jwksServer(publicKey)
 	defer server.Close()
 
-	keyStore, err := NewKeyStore(server.URL)
+	keyStore, err := NewKeyStore(context.Background(), server.URL)
 	if err != nil {
 		t.Fatalf("new key store: %v", err)
 	}
@@ -56,7 +56,7 @@ func TestVerifyJWTRejectsUnexpectedSigningMethod(t *testing.T) {
 	server := jwksServer(publicKey)
 	defer server.Close()
 
-	keyStore, err := NewKeyStore(server.URL)
+	keyStore, err := NewKeyStore(context.Background(), server.URL)
 	if err != nil {
 		t.Fatalf("new key store: %v", err)
 	}

@@ -120,9 +120,17 @@ spec:
   policyTypes:
     - Egress
   egress:
+    # PLATFORM_AUTH_JWKS_URL (deployment.yml, platform-api secret) points at the
+    # public frontend domain served through Cloudflare, whose anycast IPs cannot
+    # be pinned to a stable CIDR. External HTTPS stays open, but private ranges
+    # are excluded so this rule cannot reach in-cluster or LAN services.
     - to:
         - ipBlock:
             cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
       ports:
         - protocol: TCP
           port: 443

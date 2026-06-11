@@ -3,7 +3,6 @@ package reconciler
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	"github.com/edinstance/edinstance-lab/services/platform-api/internal/config"
 	"github.com/edinstance/edinstance-lab/services/platform-api/internal/platformdb"
@@ -18,10 +17,11 @@ import (
 const fieldManager = "edinstance-platform-api"
 
 type Reconciler struct {
-	db     *platformdb.DB
-	cipher *platformsecrets.Cipher
-	client dynamic.Interface
-	cfg    config.Config
+	db      *platformdb.DB
+	cipher  *platformsecrets.Cipher
+	client  dynamic.Interface
+	cfg     config.Config
+	metrics reconciliationMetrics
 }
 
 type AppSpec struct {
@@ -48,11 +48,16 @@ func New(ctx context.Context, cfg config.Config, db *platformdb.DB, cipher *plat
 	if err != nil {
 		return nil, fmt.Errorf("create dynamic Kubernetes client: %w", err)
 	}
+	metrics, err := newReconciliationMetrics(db)
+	if err != nil {
+		return nil, fmt.Errorf("initialize reconciliation metrics: %w", err)
+	}
 	reconciler := &Reconciler{
-		db:     db,
-		cipher: cipher,
-		client: client,
-		cfg:    cfg,
+		db:      db,
+		cipher:  cipher,
+		client:  client,
+		cfg:     cfg,
+		metrics: metrics,
 	}
 	return reconciler, nil
 }
@@ -74,14 +79,10 @@ func (r *Reconciler) ReconcileApp(ctx context.Context, name string) error {
 
 	for _, resource := range resources {
 		if err := r.apply(ctx, resource); err != nil {
-			if _, execErr := r.db.ExecContext(ctx, "update services set status = 'failed', updated_at = now() where name = $1", name); execErr != nil {
-				slog.WarnContext(ctx, "failed to persist failed reconciliation status", "name", name, "error", execErr)
-			}
 			return err
 		}
 	}
-	_, err = r.db.ExecContext(ctx, "update services set status = 'reconciling', updated_at = now() where name = $1", name)
-	return err
+	return nil
 }
 
 func (r *Reconciler) RefreshAllStatuses(ctx context.Context) error {
@@ -108,7 +109,17 @@ func (r *Reconciler) RefreshAppStatus(ctx context.Context, name string) error {
 	if err != nil {
 		return err
 	}
-	_, err = r.db.ExecContext(ctx, "update services set status = $1, updated_at = now() where name = $2", status, name)
+	_, err = r.db.ExecContext(ctx, `
+		update services
+		set status = $1,
+			reconcile_state = case
+				when reconcile_state in ('pending', 'failed', 'deleting') then reconcile_state
+				when $1 = 'ready' then 'ready'
+				else reconcile_state
+			end,
+			updated_at = now()
+		where name = $2
+	`, status, name)
 	return err
 }
 

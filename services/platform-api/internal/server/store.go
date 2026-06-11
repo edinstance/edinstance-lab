@@ -16,8 +16,9 @@ func (s *Server) listAppsFromDB() ([]App, error) {
 			replicas,
 			status,
 			updated_at
-		from services
-		order by name asc
+			from services
+			where deletion_requested_at is null
+			order by name asc
 	`)
 	if err != nil {
 		return nil, err
@@ -54,8 +55,8 @@ func (s *Server) insertApp(req CreateAppRequest) (App, error) {
 	serviceID := uuid.NewString()
 	var updatedAt time.Time
 	if err := tx.QueryRow(`
-		insert into services (id, name, image, port, replicas, status)
-		values ($1::uuid, $2, $3, $4, $5, 'pending')
+		insert into services (id, name, image, port, replicas, status, reconcile_state)
+		values ($1::uuid, $2, $3, $4, $5, 'pending', 'pending')
 		returning updated_at
 	`, serviceID, req.Name, req.Image, req.Port, req.Replicas).Scan(&updatedAt); err != nil {
 		return App{}, fmt.Errorf("insert service: %w", err)
@@ -106,7 +107,7 @@ func (s *Server) getAppFromDB(name string) (App, error) {
 			status,
 			updated_at
 		from services
-		where name = $1
+		where name = $1 and deletion_requested_at is null
 	`, name).Scan(&app.Name, &app.Image, &app.Port, &app.Replicas, &app.Status, &updatedAt)
 	if err != nil {
 		return App{}, err
@@ -149,22 +150,38 @@ func (s *Server) listDomainsForApp(name string) ([]Domain, error) {
 
 func (s *Server) serviceIDByName(name string) (string, error) {
 	var serviceID string
-	err := s.db.QueryRow("select id::text from services where name = $1", name).Scan(&serviceID)
+	err := s.db.QueryRow("select id::text from services where name = $1 and deletion_requested_at is null", name).Scan(&serviceID)
 	return serviceID, err
 }
 
-func (s *Server) upsertEnvVar(serviceID string, name string, encryptedValue string) error {
-	_, err := s.db.Exec(`
-		insert into service_env_vars (id, service_id, name, value_encrypted, is_secret)
-		values ($1::uuid, $2::uuid, $3, $4, true)
-		on conflict (service_id, name)
-		do update set
-			value_encrypted = excluded.value_encrypted,
-			is_secret = true,
-			updated_at = now()
-	`, uuid.NewString(), serviceID, name, encryptedValue)
+func (s *Server) replaceEnvVars(serviceID string, vars map[string]string) error {
+	tx, err := s.db.Begin()
 	if err != nil {
-		return fmt.Errorf("upsert env var %s: %w", name, err)
+		return fmt.Errorf("begin env update: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	for name, encryptedValue := range vars {
+		if _, err := tx.Exec(`
+			insert into service_env_vars (id, service_id, name, value_encrypted, is_secret)
+			values ($1::uuid, $2::uuid, $3, $4, true)
+			on conflict (service_id, name)
+			do update set value_encrypted = excluded.value_encrypted, is_secret = true, updated_at = now()
+		`, uuid.NewString(), serviceID, name, encryptedValue); err != nil {
+			return fmt.Errorf("upsert env var %s: %w", name, err)
+		}
+	}
+	if _, err := tx.Exec(`
+		update services
+		set desired_generation = desired_generation + 1,
+			reconcile_state = 'pending', reconcile_attempts = 0,
+			next_reconcile_at = now(), last_reconcile_error = null, updated_at = now()
+		where id = $1::uuid and deletion_requested_at is null
+	`, serviceID); err != nil {
+		return fmt.Errorf("enqueue env reconciliation: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit env update: %w", err)
 	}
 	return nil
 }

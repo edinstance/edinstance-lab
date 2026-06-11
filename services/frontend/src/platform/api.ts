@@ -42,6 +42,11 @@ export async function getSession(): Promise<Session> {
 }
 
 export async function login(password: string): Promise<Session> {
+  const { protocol, hostname } = window.location
+  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
+  if (protocol !== 'https:' && !isLocalhost) {
+    throw new Error('Refusing to send credentials over an insecure connection; use HTTPS')
+  }
   const response = await fetch('/api/platform-login', {
     method: 'POST',
     credentials: 'include',

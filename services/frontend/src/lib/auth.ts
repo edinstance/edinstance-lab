@@ -9,6 +9,8 @@ import { jwt } from 'better-auth/plugins'
 import { tanstackStartCookies } from 'better-auth/tanstack-start'
 import Database from 'better-sqlite3'
 
+import { clientIp, type FailedAttempts, incrementFailure, isBlocked, resetFailures } from './rate-limit'
+
 const databasePath = resolve(process.cwd(), process.env.BETTER_AUTH_DATABASE_PATH ?? '.data/auth.sqlite')
 const baseURL = process.env.BETTER_AUTH_URL ?? 'http://localhost:3000'
 
@@ -19,7 +21,7 @@ export const adminName = process.env.PLATFORM_ADMIN_NAME ?? 'edinstance admin'
 
 const signupPasswordWindowMs = 15 * 60 * 1000
 const maxFailedSignupPasswords = 5
-const failedSignupPasswords = new Map<string, { count: number; resetAt: number }>()
+const failedSignupPasswords: FailedAttempts = new Map()
 
 const jwtOptions = {
   issuer: process.env.PLATFORM_AUTH_ISSUER ?? baseURL,
@@ -62,16 +64,16 @@ function platformSignupPassword(): BetterAuthPlugin {
           handler: createAuthMiddleware(async (ctx) => {
             const headers = ctx.headers!
             const ip = clientIp(headers)
-            if (isSignupPasswordBlocked(ip)) {
+            if (isBlocked(failedSignupPasswords, ip, maxFailedSignupPasswords)) {
               throw APIError.from('TOO_MANY_REQUESTS', { code: 'TOO_MANY_SIGN_UP_PASSWORD_ATTEMPTS', message: 'Too many sign-up password attempts' })
             }
 
             const password = headers.get('x-platform-signup-password') ?? ''
             if (!isEqualConstantTime(password, getAdminPassword())) {
-              incrementFailedSignupPassword(ip)
+              incrementFailure(failedSignupPasswords, ip, signupPasswordWindowMs)
               throw APIError.from('FORBIDDEN', { code: 'INVALID_SIGN_UP_PASSWORD', message: 'Invalid sign-up password' })
             }
-            resetFailedSignupPassword(ip)
+            resetFailures(failedSignupPasswords, ip)
           }),
         },
       ],
@@ -79,7 +81,7 @@ function platformSignupPassword(): BetterAuthPlugin {
   }
 }
 
-function isEqualConstantTime(value: string, expected: string): boolean {
+export function isEqualConstantTime(value: string, expected: string): boolean {
   const valueBuffer = Buffer.from(value)
   const expectedBuffer = Buffer.from(expected)
   const length = Math.max(valueBuffer.length, expectedBuffer.length)
@@ -90,35 +92,4 @@ function isEqualConstantTime(value: string, expected: string): boolean {
   expectedBuffer.copy(paddedExpected)
 
   return timingSafeEqual(paddedValue, paddedExpected) && valueBuffer.length === expectedBuffer.length
-}
-
-function clientIp(headers: Headers): string {
-  const forwardedFor = headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-  return forwardedFor || headers.get('x-real-ip') || 'unknown'
-}
-
-function isSignupPasswordBlocked(ip: string): boolean {
-  const attempt = failedSignupPasswords.get(ip)
-  if (!attempt) {
-    return false
-  }
-  if (Date.now() >= attempt.resetAt) {
-    failedSignupPasswords.delete(ip)
-    return false
-  }
-  return attempt.count >= maxFailedSignupPasswords
-}
-
-function incrementFailedSignupPassword(ip: string): void {
-  const now = Date.now()
-  const attempt = failedSignupPasswords.get(ip)
-  if (!attempt || now >= attempt.resetAt) {
-    failedSignupPasswords.set(ip, { count: 1, resetAt: now + signupPasswordWindowMs })
-    return
-  }
-  attempt.count += 1
-}
-
-function resetFailedSignupPassword(ip: string): void {
-  failedSignupPasswords.delete(ip)
 }

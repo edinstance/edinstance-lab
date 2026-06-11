@@ -38,7 +38,7 @@ Kubernetes reconciliation:
 - `PLATFORM_GATEWAY_SECTION_NAME` defaults to `http-local`
 - `KUBECONFIG` can be used for local development; in-cluster config is used otherwise
 
-When enabled, app creation and env uploads reconcile:
+When enabled, app creation and env uploads enqueue durable reconciliation for:
 
 - `Secret`
 - `Deployment`
@@ -50,8 +50,14 @@ DB-backed `GET /api/apps` and `GET /api/apps/{name}` refresh service status
 from the Kubernetes Deployment before returning data. A service becomes `ready`
 when the Deployment has the desired updated and available replicas.
 
-DB-backed `DELETE /api/apps/{name}` removes generated runtime resources when
-reconciliation is enabled, then removes the service record from the database.
+The reconciliation worker uses database leases so multiple API replicas can safely
+process work. Failed operations retry with exponential backoff, successful apps are
+periodically reapplied to repair cluster drift, and deletion keeps a database
+tombstone until all generated runtime resources have been removed.
+
+DB-backed `DELETE /api/apps/{name}` returns `202` after marking the app as deleting.
+The worker removes generated runtime resources and only then removes the database
+record.
 
 Next integrations:
 

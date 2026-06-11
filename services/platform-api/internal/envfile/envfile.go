@@ -73,7 +73,12 @@ func unquote(value string) string {
 	if len(value) < 2 {
 		return value
 	}
-	if (value[0] == '"' && value[len(value)-1] == '"') || (value[0] == '\'' && value[len(value)-1] == '\'') {
+	if value[0] == '\'' && value[len(value)-1] == '\'' {
+		// Single-quoted values are literal; strconv.Unquote would apply Go
+		// rune escape semantics instead.
+		return value[1 : len(value)-1]
+	}
+	if value[0] == '"' && value[len(value)-1] == '"' {
 		unquoted, err := strconv.Unquote(value)
 		if err == nil {
 			return unquoted

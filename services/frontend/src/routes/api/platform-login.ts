@@ -1,17 +1,18 @@
 import { createFileRoute } from '@tanstack/react-router'
 
-import { adminEmail, adminName, auth, getAdminPassword } from '../../lib/auth'
+import { adminEmail, adminName, auth, getAdminPassword, isEqualConstantTime } from '../../lib/auth'
+import { clientIp, type FailedAttempts, incrementFailure, isBlocked, resetFailures } from '../../lib/rate-limit'
 
 const loginWindowMs = 15 * 60 * 1000
 const maxFailedLogins = 5
-const failedLogins = new Map<string, { count: number; resetAt: number }>()
+const failedLogins: FailedAttempts = new Map()
 
 export const Route = createFileRoute('/api/platform-login')({
   server: {
     handlers: {
       POST: async ({ request }: { request: Request }) => {
-        const ip = clientIp(request)
-        if (isBlocked(ip)) {
+        const ip = clientIp(request.headers)
+        if (isBlocked(failedLogins, ip, maxFailedLogins)) {
           return Response.json({ error: 'Too many failed login attempts' }, { status: 429 })
         }
 
@@ -23,8 +24,9 @@ export const Route = createFileRoute('/api/platform-login')({
         }
         const password = body?.password ?? ''
 
-        if (password !== getAdminPassword()) {
-          incrementFailedLogin(ip)
+        const expected = getAdminPassword()
+        if (!isEqualConstantTime(password, expected)) {
+          incrementFailure(failedLogins, ip, loginWindowMs)
           return Response.json({ error: 'Invalid credentials' }, { status: 401 })
         }
 
@@ -53,11 +55,11 @@ export const Route = createFileRoute('/api/platform-login')({
             },
           })
         } catch {
-          incrementFailedLogin(ip)
+          incrementFailure(failedLogins, ip, loginWindowMs)
           return Response.json({ error: 'Invalid credentials' }, { status: 401 })
         }
 
-        resetFailedLogin(ip)
+        resetFailures(failedLogins, ip)
         const response = Response.json({
           authenticated: true,
           user: adminEmail,
@@ -72,37 +74,6 @@ export const Route = createFileRoute('/api/platform-login')({
     },
   },
 })
-
-function clientIp(request: Request): string {
-  const forwardedFor = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-  return forwardedFor || request.headers.get('x-real-ip') || 'unknown'
-}
-
-function isBlocked(ip: string): boolean {
-  const attempt = failedLogins.get(ip)
-  if (!attempt) {
-    return false
-  }
-  if (Date.now() >= attempt.resetAt) {
-    failedLogins.delete(ip)
-    return false
-  }
-  return attempt.count >= maxFailedLogins
-}
-
-function incrementFailedLogin(ip: string): void {
-  const now = Date.now()
-  const attempt = failedLogins.get(ip)
-  if (!attempt || now >= attempt.resetAt) {
-    failedLogins.set(ip, { count: 1, resetAt: now + loginWindowMs })
-    return
-  }
-  attempt.count += 1
-}
-
-function resetFailedLogin(ip: string): void {
-  failedLogins.delete(ip)
-}
 
 function isExistingUserSignUpError(error: unknown): boolean {
   if (!error || typeof error !== 'object') {

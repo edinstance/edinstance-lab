@@ -26,7 +26,7 @@ var jwksHTTPClient = &http.Client{
 	Timeout:   5 * time.Second,
 }
 
-func NewKeyStore(jwksURL string) (*KeyStore, error) {
+func NewKeyStore(ctx context.Context, jwksURL string) (*KeyStore, error) {
 	jwksURL = strings.TrimSpace(jwksURL)
 	if jwksURL == "" {
 		return nil, errors.New("jwks url is empty")
@@ -37,7 +37,7 @@ func NewKeyStore(jwksURL string) (*KeyStore, error) {
 		url:  jwksURL,
 	}
 
-	if err := ks.refresh(context.Background()); err != nil {
+	if err := ks.refresh(ctx); err != nil {
 		return nil, err
 	}
 

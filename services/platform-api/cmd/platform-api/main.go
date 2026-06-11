@@ -29,7 +29,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	keyStore, err := platformauth.NewKeyStore(cfg.AuthJWKSURL)
+	jwksCtx, jwksCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	keyStore, err := platformauth.NewKeyStore(jwksCtx, cfg.AuthJWKSURL)
+	jwksCancel()
 	if err != nil {
 		logger.Error("failed to initialize auth JWKS keystore", "error", err)
 		os.Exit(1)
@@ -91,11 +93,30 @@ func main() {
 	} else {
 		logger.Warn("PLATFORM_RECONCILE_ENABLED is not true; Kubernetes app reconciliation is disabled")
 	}
+	workerCtx, stopWorker := context.WithCancel(context.Background())
+	workerDone := make(chan struct{})
+	if appReconciler != nil {
+		go func() {
+			defer close(workerDone)
+			if err := appReconciler.Run(workerCtx); err != nil && !errors.Is(err, context.Canceled) {
+				logger.Error("Kubernetes reconciliation worker stopped", "error", err)
+			}
+		}()
+	} else {
+		close(workerDone)
+	}
+	defer func() {
+		stopWorker()
+		<-workerDone
+	}()
 
 	srv := &http.Server{
 		Addr:              cfg.Addr,
 		Handler:           server.New(cfg, logger, platformDatabase, secretCipher, appReconciler, keyStore),
 		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	if err := run(context.Background(), srv, logger); err != nil {

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"regexp"
@@ -114,11 +115,6 @@ func (s *Server) createApp(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "unable to create app")
 		return
 	}
-	if err := s.reconcileAppIfEnabled(r.Context(), app.Name); err != nil {
-		s.logger.Error("failed to reconcile created app", "name", app.Name, "error", err)
-		writeError(w, http.StatusInternalServerError, "app created but reconciliation failed")
-		return
-	}
 	writeJSON(w, http.StatusCreated, app)
 }
 
@@ -156,12 +152,18 @@ func (s *Server) deleteApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := r.PathValue("name")
-	if err := s.deleteRuntimeAppIfEnabled(r.Context(), name); err != nil {
-		s.logger.Error("failed to delete app runtime resources", "name", name, "error", err)
-		writeError(w, http.StatusInternalServerError, "unable to delete app runtime resources")
-		return
+	var result sql.Result
+	var err error
+	if s.reconciler == nil {
+		result, err = s.db.Exec("delete from services where name = $1", name)
+	} else {
+		result, err = s.db.Exec(`
+			update services
+			set reconcile_state = 'deleting', deletion_requested_at = coalesce(deletion_requested_at, now()),
+				reconcile_attempts = 0, next_reconcile_at = now(), last_reconcile_error = null, updated_at = now()
+			where name = $1
+		`, name)
 	}
-	result, err := s.db.Exec("delete from services where name = $1", name)
 	if err != nil {
 		s.logger.Error("failed to delete app", "name", name, "error", err)
 		writeError(w, http.StatusInternalServerError, "unable to delete app")
@@ -177,7 +179,11 @@ func (s *Server) deleteApp(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "app not found")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+	if s.reconciler == nil {
+		writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+		return
+	}
+	writeJSON(w, http.StatusAccepted, map[string]string{"status": "deleting"})
 }
 
 func (s *Server) uploadEnvFile(w http.ResponseWriter, r *http.Request) {
@@ -213,6 +219,7 @@ func (s *Server) uploadEnvFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	stored := make([]EnvVarMetadata, 0, len(vars))
+	encryptedVars := make(map[string]string, len(vars))
 	for _, variable := range vars {
 		encrypted, err := s.secretCipher.Encrypt(variable.Value)
 		if err != nil {
@@ -220,17 +227,12 @@ func (s *Server) uploadEnvFile(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusInternalServerError, "unable to store env file")
 			return
 		}
-		if err := s.upsertEnvVar(serviceID, variable.Name, encrypted); err != nil {
-			s.logger.Error("failed to store env value", "name", variable.Name, "error", err)
-			writeError(w, http.StatusInternalServerError, "unable to store env file")
-			return
-		}
+		encryptedVars[variable.Name] = encrypted
 		stored = append(stored, EnvVarMetadata{Name: variable.Name, Secret: true})
 	}
-
-	if err := s.reconcileAppIfEnabled(r.Context(), r.PathValue("name")); err != nil {
-		s.logger.Error("failed to reconcile app env", "name", r.PathValue("name"), "error", err)
-		writeError(w, http.StatusInternalServerError, "env stored but reconciliation failed")
+	if err := s.replaceEnvVars(serviceID, encryptedVars); err != nil {
+		s.logger.Error("failed to store env values", "name", r.PathValue("name"), "error", err)
+		writeError(w, http.StatusInternalServerError, "unable to store env file")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string][]EnvVarMetadata{"env": stored})
@@ -267,7 +269,9 @@ func domainScope(hostname string) string {
 func writeJSON(w http.ResponseWriter, status int, value any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(value)
+	if err := json.NewEncoder(w).Encode(value); err != nil {
+		slog.Error("writeJSON: failed to encode response", "status", status, "type", fmt.Sprintf("%T", value), "error", err)
+	}
 }
 
 func writeError(w http.ResponseWriter, status int, message string) {

@@ -77,11 +77,22 @@ function ManagePage() {
         .map((domain) => domain.trim())
         .filter(Boolean)
 
+      const port = Number(form.port)
+      const replicas = Number(form.replicas)
+      if (!Number.isInteger(port) || port < 1 || port > 65535) {
+        setError('Port must be a whole number between 1 and 65535')
+        return
+      }
+      if (!Number.isInteger(replicas) || replicas < 1 || replicas > 20) {
+        setError('Replicas must be a whole number between 1 and 20')
+        return
+      }
+
       const app = await createApp({
         name: form.name.trim(),
         image: form.image.trim(),
-        port: Number(form.port),
-        replicas: Number(form.replicas),
+        port,
+        replicas,
         domains,
       })
 

@@ -30,7 +30,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: frontend
-          image: ghcr.io/edinstance/edinstance-lab/frontend:sha-8909575
+          image: ghcr.io/edinstance/edinstance-lab/frontend:sha-c24599c
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

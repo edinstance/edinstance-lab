@@ -184,13 +184,13 @@ metadata:
 spec:
   endpointSelector: {}
   egress:
-    - toServices:
-        - k8sService:
-            serviceName: kubernetes
-            namespace: default
+    - toEntities:
+        - kube-apiserver
       toPorts:
         - ports:
             - port: "443"
+              protocol: TCP
+            - port: "6443"
               protocol: TCP
 ---
 apiVersion: networking.k8s.io/v1

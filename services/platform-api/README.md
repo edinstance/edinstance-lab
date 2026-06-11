@@ -5,14 +5,15 @@ Small REST API for the edinstance platform UI.
 Current endpoints:
 
 - `GET /healthz`
-- `GET /api/session`
-- `POST /api/session`
-- `DELETE /api/session`
 - `GET /api/apps`
 - `POST /api/apps`
 - `GET /api/apps/{name}`
 - `DELETE /api/apps/{name}`
 - `POST /api/apps/{name}/env-file`
+
+All `/api/apps` endpoints require an `Authorization: Bearer <jwt>` header. The
+frontend gets this JWT from Better Auth after the user signs in; the API verifies
+it against the configured JWKS endpoint, issuer, and audience.
 
 Development defaults:
 

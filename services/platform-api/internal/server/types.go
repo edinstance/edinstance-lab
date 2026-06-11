@@ -19,11 +19,6 @@ type Domain struct {
 	Status string `json:"status"`
 }
 
-type Session struct {
-	Authenticated bool   `json:"authenticated"`
-	User          string `json:"user,omitempty"`
-}
-
 type EnvVarMetadata struct {
 	Name   string `json:"name"`
 	Secret bool   `json:"secret"`

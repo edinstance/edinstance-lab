@@ -1,0 +1,15 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: platform-database
+  namespace: platform-db
+  labels:
+    app.kubernetes.io/name: platform-db
+    app.kubernetes.io/part-of: edinstance-platform
+    app.kubernetes.io/managed-by: flux
+spec:
+  name: edinstance-lab
+  owner: postgres
+  cluster:
+    name: platform-db
+  databaseReclaimPolicy: retain

@@ -45,7 +45,6 @@ func New(cfg config.Config, logger *slog.Logger, db *platformdb.DB, secretCipher
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.health)
-	mux.HandleFunc("GET /api/session", s.session)
 	mux.HandleFunc("GET /api/apps", s.withAuth(s.listApps))
 	mux.HandleFunc("POST /api/apps", s.withAuth(s.createApp))
 	mux.HandleFunc("GET /api/apps/{name}", s.withAuth(s.getApp))
@@ -57,15 +56,6 @@ func New(cfg config.Config, logger *slog.Logger, db *platformdb.DB, secretCipher
 
 func (s *Server) health(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
-}
-
-func (s *Server) session(w http.ResponseWriter, r *http.Request) {
-	claims := s.authClaims(r)
-	if claims != nil && claims.Subject != "" {
-		writeJSON(w, http.StatusOK, Session{Authenticated: true, User: claims.Subject})
-		return
-	}
-	writeJSON(w, http.StatusOK, Session{Authenticated: false})
 }
 
 func (s *Server) listApps(w http.ResponseWriter, r *http.Request) {

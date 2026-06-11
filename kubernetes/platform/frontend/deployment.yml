@@ -44,7 +44,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: platform-api-config
-                  key: session-token
+                  key: auth-secret
             - name: PLATFORM_ADMIN_PASSWORD
               valueFrom:
                 secretKeyRef:

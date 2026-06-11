@@ -10,6 +10,9 @@ metadata:
 spec:
   instances: 3
   imageName: ghcr.io/cloudnative-pg/postgresql:17
+  enableSuperuserAccess: true
+  superuserSecret:
+    name: platform-db-superuser
   primaryUpdateStrategy: unsupervised
   bootstrap:
     initdb:

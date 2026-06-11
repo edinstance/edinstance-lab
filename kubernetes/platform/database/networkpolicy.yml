@@ -171,6 +171,17 @@ spec:
         - protocol: TCP
           port: 6443
 ---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-kubernetes-api-egress
+  namespace: platform-db
+spec:
+  endpointSelector: {}
+  egress:
+    - toEntities:
+        - kube-apiserver
+---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:

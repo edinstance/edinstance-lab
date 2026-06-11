@@ -50,7 +50,7 @@ DB-backed `GET /api/apps` and `GET /api/apps/{name}` refresh service status
 from the Kubernetes Deployment before returning data. A service becomes `ready`
 when the Deployment has the desired updated and available replicas.
 
-The reconciliation worker uses database leases so multiple API replicas can safely
+The reconciliation worker uses database leases, so multiple API replicas can safely
 process work. Failed operations retry with exponential backoff, successful apps are
 periodically reapplied to repair cluster drift, and deletion keeps a database
 tombstone until all generated runtime resources have been removed.

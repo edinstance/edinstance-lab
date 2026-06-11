@@ -72,6 +72,12 @@ function ManagePage() {
     setNotice(null)
 
     try {
+      const name = form.name.trim()
+      const image = form.image.trim()
+      if (name === '' || image === '') {
+        setError('Name and image are required')
+        return
+      }
       const domains = form.domains
         .split(',')
         .map((domain) => domain.trim())
@@ -89,8 +95,8 @@ function ManagePage() {
       }
 
       const app = await createApp({
-        name: form.name.trim(),
-        image: form.image.trim(),
+        name,
+        image,
         port,
         replicas,
         domains,
@@ -135,6 +141,10 @@ function ManagePage() {
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file) {
+      return
+    }
+    if (file.size > 1024 * 1024) {
+      setError('Env file too large; must be <= 1 MiB')
       return
     }
 

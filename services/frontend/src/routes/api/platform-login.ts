@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { APIError } from 'better-auth/api'
 
-import { adminEmail, adminName, auth, getAdminPassword, isEqualConstantTime } from '../../lib/auth'
+import { adminEmail, adminName, auth, getAdminPassword, isEqualConstantTime, updateAdminPassword } from '../../lib/auth'
 import { clientIp, type FailedAttempts, incrementFailure, isBlocked, resetFailures } from '../../lib/rate-limit'
 
 const loginWindowMs = 15 * 60 * 1000
@@ -30,33 +31,42 @@ export const Route = createFileRoute('/api/platform-login')({
           return Response.json({ error: 'Invalid credentials' }, { status: 401 })
         }
 
-        await auth.api.signUpEmail({
-          body: {
-            email: adminEmail,
-            name: adminName,
-            password,
-          },
-          headers: new Headers({
-            'x-platform-signup-password': password,
-          }),
-        }).catch((error: unknown) => {
+        let signInResponse: Response | undefined
+        try {
+          await auth.api.signUpEmail({
+            body: {
+              email: adminEmail,
+              name: adminName,
+              password,
+            },
+            headers: new Headers({
+              'x-platform-signup-password': password,
+            }),
+          })
+        } catch (error: unknown) {
           if (!isExistingUserSignUpError(error)) {
             throw error
           }
-        })
+          try {
+            signInResponse = await signIn(password)
+          } catch (signInError: unknown) {
+            if (!isInvalidCredentialsError(signInError)) {
+              throw signInError
+            }
+            await updateAdminPassword(password)
+          }
+        }
 
-        let signInResponse: Response
-        try {
-          signInResponse = await auth.api.signInEmail({
-            asResponse: true,
-            body: {
-              email: adminEmail,
-              password,
-            },
-          })
-        } catch {
-          incrementFailure(failedLogins, ip, loginWindowMs)
-          return Response.json({ error: 'Invalid credentials' }, { status: 401 })
+        if (!signInResponse) {
+          try {
+            signInResponse = await signIn(password)
+          } catch (error: unknown) {
+            if (!isInvalidCredentialsError(error)) {
+              throw error
+            }
+            incrementFailure(failedLogins, ip, loginWindowMs)
+            return Response.json({ error: 'Invalid credentials' }, { status: 401 })
+          }
         }
 
         resetFailures(failedLogins, ip)
@@ -74,6 +84,20 @@ export const Route = createFileRoute('/api/platform-login')({
     },
   },
 })
+
+function signIn(password: string): Promise<Response> {
+  return auth.api.signInEmail({
+    asResponse: true,
+    body: {
+      email: adminEmail,
+      password,
+    },
+  })
+}
+
+function isInvalidCredentialsError(error: unknown): boolean {
+  return error instanceof APIError && error.body?.code === 'INVALID_EMAIL_OR_PASSWORD'
+}
 
 function isExistingUserSignUpError(error: unknown): boolean {
   if (!error || typeof error !== 'object') {

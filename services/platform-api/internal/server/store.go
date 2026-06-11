@@ -161,6 +161,18 @@ func (s *Server) replaceEnvVars(serviceID string, vars map[string]string) error 
 	}
 	defer func() { _ = tx.Rollback() }()
 
+	names := make([]string, 0, len(vars))
+	for name := range vars {
+		names = append(names, name)
+	}
+	if _, err := tx.Exec(`
+		delete from service_env_vars
+		where service_id = $1::uuid
+			and not (name = any($2::text[]))
+	`, serviceID, names); err != nil {
+		return fmt.Errorf("delete stale env vars: %w", err)
+	}
+
 	for name, encryptedValue := range vars {
 		if _, err := tx.Exec(`
 			insert into service_env_vars (id, service_id, name, value_encrypted, is_secret)

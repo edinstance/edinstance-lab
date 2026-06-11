@@ -30,12 +30,12 @@ func (r *Reconciler) loadAppSpec(ctx context.Context, name string) (AppSpec, err
 	for domainRows.Next() {
 		var hostname string
 		if err := domainRows.Scan(&hostname); err != nil {
-			return AppSpec{}, err
+			return AppSpec{}, fmt.Errorf("scan domain row for %s: %w", name, err)
 		}
 		spec.Domains = append(spec.Domains, hostname)
 	}
 	if err := domainRows.Err(); err != nil {
-		return AppSpec{}, err
+		return AppSpec{}, fmt.Errorf("iterate domain rows for %s: %w", name, err)
 	}
 
 	spec.Env = map[string]string{}
@@ -54,7 +54,7 @@ func (r *Reconciler) loadAppSpec(ctx context.Context, name string) (AppSpec, err
 		var envName string
 		var encrypted string
 		if err := envRows.Scan(&envName, &encrypted); err != nil {
-			return AppSpec{}, err
+			return AppSpec{}, fmt.Errorf("scan env row for %s: %w", name, err)
 		}
 		value, err := r.cipher.Decrypt(encrypted)
 		if err != nil {
@@ -63,7 +63,7 @@ func (r *Reconciler) loadAppSpec(ctx context.Context, name string) (AppSpec, err
 		spec.Env[envName] = value
 	}
 	if err := envRows.Err(); err != nil {
-		return AppSpec{}, err
+		return AppSpec{}, fmt.Errorf("iterate env rows for %s: %w", name, err)
 	}
 
 	return spec, nil

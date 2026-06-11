@@ -8,18 +8,20 @@ import (
 	"strings"
 )
 
+const maxEnvFileSize = 1024 * 1024
+
 func readEnvFileContent(r *http.Request) (string, error) {
 	if strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
 		var body struct {
 			Content string `json:"content"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if err := json.NewDecoder(io.LimitReader(r.Body, maxEnvFileSize)).Decode(&body); err != nil {
 			return "", errors.New("invalid JSON body")
 		}
 		return body.Content, nil
 	}
 
-	body, err := io.ReadAll(io.LimitReader(r.Body, 1024*1024))
+	body, err := io.ReadAll(io.LimitReader(r.Body, maxEnvFileSize))
 	if err != nil {
 		return "", errors.New("unable to read env file")
 	}

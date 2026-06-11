@@ -3,7 +3,7 @@ alter table services
   add column if not exists reconciled_generation bigint not null default 0,
   add column if not exists reconcile_state text not null default 'pending',
   add column if not exists reconcile_attempts integer not null default 0,
-  add column if not exists next_reconcile_at timestamptz not null default now(),
+  add column if not exists next_reconcile_at timestamptz not null default (now() + random() * interval '1 hour'),
   add column if not exists last_reconcile_error text,
   add column if not exists deletion_requested_at timestamptz,
   add column if not exists reconcile_lease_until timestamptz;

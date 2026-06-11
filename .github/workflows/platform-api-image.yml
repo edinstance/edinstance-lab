@@ -62,7 +62,8 @@ jobs:
         run: |
           image="${{ steps.meta.outputs.image }}"
           file="kubernetes/platform/api/deployment.yml"
-          perl -0pi -e "s#image: ghcr\\.io/edinstance/edinstance-lab/platform-api:sha-[0-9a-f]{7,40}#image: ${image}#" "$file"
+          repo="${GITHUB_REPOSITORY}"
+          perl -0pi -e "s#image: ghcr\\.io/${repo}/platform-api:sha-[0-9a-f]{7,40}#image: ${image}#" "$file"
           if ! grep -q "image: ${image}" "$file"; then
             echo "::error::Failed to update ${file} to ${image}"
             exit 1

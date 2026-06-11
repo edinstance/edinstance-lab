@@ -243,6 +243,12 @@ flux get sources git -A
 flux get kustomizations -A
 ```
 
+Before enabling the platform kustomization, create the `platform-db-app`
+Secret in the `platform-db` namespace. It must use the `username` and
+`password` keys shown in `kubernetes/platform/database/secret.example.yml`.
+Create it from a password manager or commit it as a SOPS-managed Secret; do
+not commit the plaintext example.
+
 ## Normal GitOps Workflow
 
 Make a change:

@@ -37,6 +37,16 @@ export function getAdminPassword() {
   return password
 }
 
+export async function updateAdminPassword(password: string) {
+  const context = await auth.$context
+  const result = await context.internalAdapter.findUserByEmail(adminEmail)
+  if (!result) {
+    throw new Error(`Admin user ${adminEmail} does not exist`)
+  }
+  const passwordHash = await context.password.hash(password)
+  await context.internalAdapter.updatePassword(result.user.id, passwordHash)
+}
+
 export const auth = betterAuth({
   appName: 'edinstance platform',
   baseURL,

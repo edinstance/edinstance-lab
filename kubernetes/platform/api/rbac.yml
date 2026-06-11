@@ -54,6 +54,7 @@ rules:
       - get
       - list
       - watch
+      - create
       - patch
       - delete
   - apiGroups:
@@ -64,6 +65,7 @@ rules:
       - get
       - list
       - watch
+      - create
       - patch
       - delete
   - apiGroups:
@@ -74,6 +76,7 @@ rules:
       - get
       - list
       - watch
+      - create
       - patch
       - delete
   - apiGroups:
@@ -84,6 +87,7 @@ rules:
       - get
       - list
       - watch
+      - create
       - patch
       - delete
 ---

@@ -27,7 +27,7 @@ func (r *Reconciler) deploymentStatus(ctx context.Context, name string) (string,
 	if err != nil {
 		return "failed", fmt.Errorf("read deployment %s desired replicas: %w", name, err)
 	}
-	if !found || desired == 0 {
+	if !found {
 		desired = 1
 	}
 	available, found, err := unstructured.NestedInt64(deployment.Object, "status", "availableReplicas")

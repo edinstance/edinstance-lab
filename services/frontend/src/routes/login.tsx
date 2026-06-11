@@ -15,6 +15,10 @@ function LoginPage() {
 
   async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!password.trim()) {
+      setError("Password is required");
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {

@@ -1,8 +1,12 @@
 export type FailedAttempts = Map<string, { count: number; resetAt: number }>
 
 export function clientIp(headers: Headers): string {
+  if (process.env.TRUST_PROXY !== 'true') {
+    return 'unknown'
+  }
+  // The trusted reverse proxy must strip incoming forwarding headers and set this value itself.
   const forwardedFor = headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-  return forwardedFor || headers.get('x-real-ip') || 'unknown'
+  return forwardedFor || 'unknown'
 }
 
 export function isBlocked(attempts: FailedAttempts, ip: string, maxFailures: number): boolean {
@@ -19,6 +23,11 @@ export function isBlocked(attempts: FailedAttempts, ip: string, maxFailures: num
 
 export function incrementFailure(attempts: FailedAttempts, ip: string, windowMs: number): void {
   const now = Date.now()
+  for (const [attemptIp, attempt] of attempts) {
+    if (now >= attempt.resetAt) {
+      attempts.delete(attemptIp)
+    }
+  }
   const attempt = attempts.get(ip)
   if (!attempt || now >= attempt.resetAt) {
     attempts.set(ip, { count: 1, resetAt: now + windowMs })

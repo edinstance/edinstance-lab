@@ -9,7 +9,7 @@ import (
 func (s *Server) withCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
-		if isAllowedLocalOrigin(origin) {
+		if isAllowedOrigin(origin) {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
 			w.Header().Set("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS")
@@ -22,7 +22,7 @@ func (s *Server) withCORS(next http.Handler) http.Handler {
 	})
 }
 
-func isAllowedLocalOrigin(origin string) bool {
+func isAllowedOrigin(origin string) bool {
 	if origin == "" {
 		return false
 	}
@@ -34,5 +34,8 @@ func isAllowedLocalOrigin(origin string) bool {
 		return false
 	}
 	host := strings.ToLower(parsedOrigin.Hostname())
-	return host == "localhost" || host == "127.0.0.1"
+	return host == "localhost" ||
+		host == "127.0.0.1" ||
+		host == "ui.edinstance.uk" ||
+		host == "platform.local.edinstance.uk"
 }

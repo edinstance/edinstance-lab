@@ -1,0 +1,53 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: platform-frontend-local
+  namespace: platform-system
+spec:
+  parentRefs:
+    - name: main-gateway
+      namespace: gateway-system
+      sectionName: http-local
+    - name: main-gateway
+      namespace: gateway-system
+      sectionName: https-local
+  hostnames:
+    - platform.local.edinstance.uk
+  rules:
+    - backendRefs:
+        - name: platform-frontend
+          port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: platform-frontend-public
+  namespace: platform-system
+spec:
+  parentRefs:
+    - name: main-gateway
+      namespace: gateway-system
+      sectionName: http-public
+  hostnames:
+    - ui.edinstance.uk
+  rules:
+    - backendRefs:
+        - name: platform-frontend
+          port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: platform-api-public
+  namespace: platform-system
+spec:
+  parentRefs:
+    - name: main-gateway
+      namespace: gateway-system
+      sectionName: http-public
+  hostnames:
+    - api.edinstance.uk
+  rules:
+    - backendRefs:
+        - name: platform-api
+          port: 80

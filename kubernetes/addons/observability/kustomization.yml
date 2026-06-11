@@ -5,5 +5,6 @@ resources:
   - helmrepository.yml
   - values-configmap.yml
   - kube-prometheus-stack.yml
+  - dashboards.yml
   - grafana-route.yml
   - networkpolicy.yml

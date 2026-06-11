@@ -7,6 +7,7 @@ defaultSettings:
   replicaAutoBalance: best-effort
   storageOverProvisioningPercentage: 100
   storageMinimalAvailablePercentage: 25
+  storageReservedPercentageForDefaultDisk: 10
   createDefaultDiskLabeledNodes: false
   defaultDataPath: /var/lib/longhorn
 

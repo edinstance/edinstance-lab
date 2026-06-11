@@ -7,4 +7,5 @@ resources:
   - platform.yml
   - platform-database.yml
   - platform-api.yml
+  - platform-frontend.yml
   - apps.yml

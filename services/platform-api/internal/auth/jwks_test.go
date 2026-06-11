@@ -21,7 +21,7 @@ func TestVerifyJWT(t *testing.T) {
 	server := jwksServer(publicKey)
 	defer server.Close()
 
-	keyStore, err := NewKeyStore(context.Background(), server.URL)
+	keyStore, err := NewKeyStore(server.URL)
 	if err != nil {
 		t.Fatalf("new key store: %v", err)
 	}
@@ -56,7 +56,7 @@ func TestVerifyJWTRejectsUnexpectedSigningMethod(t *testing.T) {
 	server := jwksServer(publicKey)
 	defer server.Close()
 
-	keyStore, err := NewKeyStore(context.Background(), server.URL)
+	keyStore, err := NewKeyStore(server.URL)
 	if err != nil {
 		t.Fatalf("new key store: %v", err)
 	}
@@ -76,6 +76,26 @@ func TestVerifyJWTRejectsUnexpectedSigningMethod(t *testing.T) {
 
 	if _, err := keyStore.VerifyJWT(context.Background(), tokenString, "issuer", "platform-api"); err == nil {
 		t.Fatal("expected HS256 token to be rejected")
+	}
+}
+
+func TestNewKeyStoreDoesNotFetchJWKS(t *testing.T) {
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		requests++
+	}))
+	serverURL := server.URL
+	server.Close()
+
+	keyStore, err := NewKeyStore(serverURL)
+	if err != nil {
+		t.Fatalf("new key store: %v", err)
+	}
+	if keyStore == nil {
+		t.Fatal("expected key store")
+	}
+	if requests != 0 {
+		t.Fatalf("JWKS requests = %d, want 0", requests)
 	}
 }
 

@@ -29,11 +29,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	jwksCtx, jwksCancel := context.WithTimeout(context.Background(), 10*time.Second)
-	keyStore, err := platformauth.NewKeyStore(jwksCtx, cfg.AuthJWKSURL)
-	jwksCancel()
+	keyStore, err := platformauth.NewKeyStore(cfg.AuthJWKSURL)
 	if err != nil {
-		logger.Error("failed to initialize auth JWKS keystore", "error", err)
+		logger.Error("failed to configure auth JWKS keystore", "error", err)
 		os.Exit(1)
 	}
 

@@ -1,20 +1,24 @@
-name: frontend ci
+name: platform images
 
 on:
   workflow_dispatch:
   pull_request:
     paths:
       - services/frontend/**
-      - .github/workflows/frontend-ci.yml
+      - services/platform-api/**
+      - .github/workflows/platform-images.yml
+      - scripts/update-platform-deployments.sh
   push:
     branches:
       - main
     paths:
       - services/frontend/**
-      - .github/workflows/frontend-ci.yml
+      - services/platform-api/**
+      - .github/workflows/platform-images.yml
+      - scripts/update-platform-deployments.sh
 
 concurrency:
-  group: frontend-ci-${{ github.ref }}
+  group: platform-images-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -95,29 +99,34 @@ jobs:
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
 
-      - name: Update deployment image
-        shell: bash
-        run: |
-          image="${{ steps.meta.outputs.image }}"
-          file="kubernetes/platform/frontend/deployment.yml"
-          repo="${GITHUB_REPOSITORY}"
-          perl -0pi -e "s#image: ghcr\\.io/${repo}/frontend:sha-[0-9a-f]{7,40}#image: ${image}#" "$file"
-          if ! grep -q "image: ${image}" "$file"; then
-            echo "::error::Failed to update ${file} to ${image}"
-            exit 1
-          fi
-          git diff -- "$file"
+      - name: Build and push platform API
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+        with:
+          context: services/platform-api
+          push: true
+          tags: ghcr.io/${{ github.repository }}/platform-api:sha-${{ steps.meta.outputs.short_sha }}
+          cache-from: type=gha,scope=platform-api
+          cache-to: type=gha,mode=max,scope=platform-api
 
-      - name: Commit deployment image tag
+      - name: Update deployment images
         shell: bash
         run: |
-          if git diff --quiet -- kubernetes/platform/frontend/deployment.yml; then
-            echo "Deployment already uses ${{ steps.meta.outputs.image }}"
+          scripts/update-platform-deployments.sh "${{ steps.meta.outputs.short_sha }}"
+
+      - name: Commit deployment image tags
+        shell: bash
+        run: |
+          files=(
+            kubernetes/platform/frontend/deployment.yml
+            kubernetes/platform/api/deployment.yml
+          )
+          if git diff --quiet -- "${files[@]}"; then
+            echo "Deployments already use sha-${{ steps.meta.outputs.short_sha }}"
             exit 0
           fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add kubernetes/platform/frontend/deployment.yml
-          git commit -m "Deploy frontend sha-${{ steps.meta.outputs.short_sha }}"
+          git add "${files[@]}"
+          git commit -m "Deploy platform sha-${{ steps.meta.outputs.short_sha }}"
           git push origin "HEAD:${GITHUB_REF_NAME}"

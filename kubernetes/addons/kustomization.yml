@@ -5,6 +5,7 @@ resources:
   # addons set; see gitops.md and helmfile.yaml. Certificate resources are
   # reconciled by the separate Flux certificates Kustomization.
   - cloudflare-tunnel
+  - cloudnative-pg
   - envoy-gateway
   - observability
   - opentelemetry

@@ -5,4 +5,5 @@ resources:
   - helmrepository.yml
   - values-configmap.yml
   - collector.yml
+  - servicemonitor.yml
   - networkpolicy.yml

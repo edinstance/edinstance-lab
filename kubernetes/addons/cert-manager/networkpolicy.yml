@@ -110,5 +110,7 @@ spec:
         - ipBlock:
             cidr: 192.168.2.0/24
       ports:
+        # Matches webhook.securePort in values.yml (10260; 10250 is taken by
+        # the kubelet because the webhook runs with hostNetwork: true).
         - protocol: TCP
-          port: 10250
+          port: 10260

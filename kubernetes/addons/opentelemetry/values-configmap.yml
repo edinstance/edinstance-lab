@@ -23,6 +23,11 @@ data:
         containerPort: 4318
         servicePort: 4318
         protocol: TCP
+      prometheus:
+        enabled: true
+        containerPort: 9464
+        servicePort: 9464
+        protocol: TCP
 
     resources:
       requests:
@@ -47,6 +52,8 @@ data:
           limit_percentage: 75
           spike_limit_percentage: 15
       exporters:
+        prometheus:
+          endpoint: 0.0.0.0:9464
         debug:
           verbosity: basic
       service:
@@ -66,7 +73,7 @@ data:
               - memory_limiter
               - batch
             exporters:
-              - debug
+              - prometheus
           logs:
             receivers:
               - otlp

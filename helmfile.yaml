@@ -7,6 +7,8 @@ repositories:
     url: https://metallb.github.io/metallb
   - name: longhorn
     url: https://charts.longhorn.io
+  - name: cloudnative-pg
+    url: https://cloudnative-pg.github.io/charts
 
 releases:
   - name: cilium
@@ -54,6 +56,17 @@ releases:
       - kube-system/cilium
     values:
       - kubernetes/addons/longhorn/values.yml
+
+  - name: cloudnative-pg
+    namespace: cnpg-system
+    chart: cloudnative-pg/cloudnative-pg
+    version: 0.28.2
+    createNamespace: true
+    needs:
+      - kube-system/cilium
+      - longhorn-system/longhorn
+    values:
+      - kubernetes/addons/cloudnative-pg/values.yml
 
   - name: cert-manager
     namespace: cert-manager

@@ -1,0 +1,156 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: platform-system
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-platform-api-ingress
+  namespace: platform-system
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: platform-api
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: gateway-system
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare-tunnel
+      ports:
+        - protocol: TCP
+          port: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-platform-api-database-egress
+  namespace: platform-system
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: platform-api
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: platform-db
+          podSelector:
+            matchLabels:
+              cnpg.io/poolerName: platform-db-pooler-rw
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-platform-api-kubernetes-api-egress
+  namespace: platform-system
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: platform-api
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 10.96.0.0/12
+      ports:
+        - protocol: TCP
+          port: 443
+    - to:
+        - ipBlock:
+            cidr: 192.168.2.80/32
+        - ipBlock:
+            cidr: 192.168.2.10/32
+        - ipBlock:
+            cidr: 192.168.2.11/32
+        - ipBlock:
+            cidr: 192.168.2.12/32
+      ports:
+        - protocol: TCP
+          port: 6443
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-platform-api-dns-egress
+  namespace: platform-system
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: platform-api
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-platform-api-auth-jwks-egress
+  namespace: platform-system
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: platform-api
+  policyTypes:
+    - Egress
+  egress:
+    # PLATFORM_AUTH_JWKS_URL (deployment.yml, platform-api secret) points at the
+    # public frontend domain served through Cloudflare, whose anycast IPs cannot
+    # be pinned to a stable CIDR. External HTTPS stays open, but private ranges
+    # are excluded so this rule cannot reach in-cluster or LAN services.
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 443
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-platform-api-otel-egress
+  namespace: platform-system
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: platform-api
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: opentelemetry
+      ports:
+        - protocol: TCP
+          port: 4318

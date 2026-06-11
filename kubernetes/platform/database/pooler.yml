@@ -1,0 +1,36 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Pooler
+metadata:
+  name: platform-db-pooler-rw
+  namespace: platform-db
+  labels:
+    app.kubernetes.io/name: platform-db-pooler
+    app.kubernetes.io/part-of: edinstance-platform
+    app.kubernetes.io/managed-by: flux
+spec:
+  cluster:
+    name: platform-db
+  instances: 2
+  type: rw
+  monitoring:
+    enablePodMonitor: true
+  pgbouncer:
+    poolMode: session
+    parameters:
+      max_client_conn: "1000"
+      default_pool_size: "20"
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: platform-db-pooler
+        app.kubernetes.io/part-of: edinstance-platform
+    spec:
+      containers:
+        - name: pgbouncer
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi

@@ -1,0 +1,49 @@
+name: frontend ci
+
+on:
+  pull_request:
+    paths:
+      - services/frontend/**
+      - .github/workflows/frontend-ci.yml
+  push:
+    branches:
+      - main
+    paths:
+      - services/frontend/**
+      - .github/workflows/frontend-ci.yml
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda
+        with:
+          version: 9
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: services/frontend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm i --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Build
+        run: pnpm run build

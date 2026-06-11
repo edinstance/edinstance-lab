@@ -1,0 +1,24 @@
+apiVersion: platform.edinstance.uk/v1alpha1
+kind: App
+metadata:
+  name: sample
+  namespace: apps
+spec:
+  image: ghcr.io/edinstance/edinstance-lab/sample:20260604-demo
+  port: 8080
+  replicas: 2
+  domains:
+    - sample.local.edinstance.uk
+    - sample.edinstance.uk
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  probes:
+    path: /
+    initialDelaySeconds: 10
+  observability:
+    otel: true

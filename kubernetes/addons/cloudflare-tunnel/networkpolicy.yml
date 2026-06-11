@@ -55,7 +55,7 @@ spec:
     - to:
         - namespaceSelector:
             matchLabels:
-              gateway.edinstance.com/route-access: "true"
+              gateway.edinstance.uk/route-access: "true"
       ports:
         - protocol: TCP
           port: 80

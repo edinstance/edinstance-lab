@@ -3,4 +3,4 @@ kind: Namespace
 metadata:
   name: apps
   labels:
-    gateway.edinstance.com/route-access: "true"
+    gateway.edinstance.uk/route-access: "true"

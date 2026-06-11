@@ -4,7 +4,7 @@ metadata:
   name: letsencrypt-staging-cloudflare
 spec:
   acme:
-    email: edward@edinstance.com
+    email: edward@edinstance.uk
     server: https://acme-staging-v02.api.letsencrypt.org/directory
     privateKeySecretRef:
       name: letsencrypt-staging-cloudflare-account-key
@@ -24,7 +24,7 @@ metadata:
   name: letsencrypt-prod-cloudflare
 spec:
   acme:
-    email: edward@edinstance.com
+    email: edward@edinstance.uk
     server: https://acme-v02.api.letsencrypt.org/directory
     privateKeySecretRef:
       name: letsencrypt-prod-cloudflare-account-key

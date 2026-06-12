@@ -1,23 +1,28 @@
 import { timingSafeEqual } from 'node:crypto'
-import { mkdirSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
 
 import { betterAuth, type BetterAuthPlugin } from 'better-auth'
 import { createAuthMiddleware } from 'better-auth/api'
 import { APIError } from 'better-auth/api'
+import { getMigrations } from 'better-auth/db/migration'
 import { jwt } from 'better-auth/plugins'
 import { tanstackStartCookies } from 'better-auth/tanstack-start'
-import Database from 'better-sqlite3'
+import { Pool } from 'pg'
 
 import { clientIp, type FailedAttempts, incrementFailure, isBlocked, resetFailures } from './rate-limit'
 
-const databasePath = resolve(process.cwd(), process.env.BETTER_AUTH_DATABASE_PATH ?? '.data/auth.sqlite')
 const baseURL = process.env.BETTER_AUTH_URL ?? 'http://localhost:3000'
-
-mkdirSync(dirname(databasePath), { recursive: true })
 
 export const adminEmail = process.env.PLATFORM_ADMIN_EMAIL ?? 'admin@edinstance.local'
 export const adminName = process.env.PLATFORM_ADMIN_NAME ?? 'edinstance admin'
+
+const authDatabase = new Pool({
+  host: requiredEnv('PLATFORM_DATABASE_HOST'),
+  database: requiredEnv('PLATFORM_DATABASE_NAME'),
+  user: requiredEnv('PLATFORM_DATABASE_USER'),
+  password: requiredEnv('PLATFORM_DATABASE_PASSWORD'),
+  port: Number(process.env.PLATFORM_DATABASE_PORT ?? '5432'),
+  max: 5,
+})
 
 const signupPasswordWindowMs = 15 * 60 * 1000
 const maxFailedSignupPasswords = 5
@@ -50,7 +55,7 @@ export async function updateAdminPassword(password: string) {
 export const auth = betterAuth({
   appName: 'edinstance platform',
   baseURL,
-  database: new Database(databasePath),
+  database: authDatabase,
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 12,
@@ -63,6 +68,17 @@ export const auth = betterAuth({
     tanstackStartCookies(),
   ],
 })
+
+const migrations = await getMigrations(auth.options)
+await migrations.runMigrations()
+
+function requiredEnv(name: string) {
+  const value = process.env[name]
+  if (!value) {
+    throw new Error(`${name} must be set`)
+  }
+  return value
+}
 
 function platformSignupPassword(): BetterAuthPlugin {
   return {

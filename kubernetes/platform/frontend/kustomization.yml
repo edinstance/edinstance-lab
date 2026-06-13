@@ -6,3 +6,4 @@ resources:
   - service.yml
   - routes.yml
   - networkpolicy.yml
+  - cilium-networkpolicy.yml

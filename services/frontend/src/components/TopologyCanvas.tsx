@@ -23,13 +23,6 @@ const nodeTypes: NodeTypes = {
   topologyNode: TopologyNode,
 }
 
-const flows: Array<{ id: TopologyFlow | 'all'; label: string }> = [
-  { id: 'all', label: 'All' },
-  { id: 'build', label: 'Builds' },
-  { id: 'runtime', label: 'Runtime' },
-  { id: 'dns', label: 'DNS' },
-]
-
 const controlClass = 'min-h-[30px] border border-[#9c927f] bg-[#fffdf7e0] px-2.5 font-mono text-[.72rem] font-extrabold leading-none text-[#17211b] transition-colors hover:border-[#17211b] hover:bg-[#17211b] hover:text-[#fffdf7] disabled:cursor-not-allowed disabled:opacity-55'
 
 type TopologyCanvasProps = {
@@ -46,7 +39,7 @@ export function TopologyCanvas({ apps = [] }: TopologyCanvasProps) {
 
 function TopologyCanvasInner({ apps }: Required<TopologyCanvasProps>) {
   const [activeFlow, setActiveFlow] = useState<TopologyFlow | 'all'>('all')
-  const [selectedNodeId, setSelectedNodeId] = useState<string>(apps[0]?.name ?? 'upload')
+  const [selectedNodeId, setSelectedNodeId] = useState<string>(apps[0]?.name ?? 'platform-frontend')
   const { fitView } = useReactFlow<TopologyNodeType, TopologyEdge>()
   const topology = useMemo(() => createServiceTopology(apps), [apps])
 
@@ -65,8 +58,12 @@ function TopologyCanvasInner({ apps }: Required<TopologyCanvasProps>) {
   useEffect(() => {
     setNodes(withFlowState(cloneTopologyNodes(topology.nodes), topology.edges, activeFlow))
     setEdges(topology.edges.map((edge) => withEdgeState(edge, activeFlow)))
-    window.requestAnimationFrame(() => fitView({ padding: 0.12, duration: 260 }))
-  }, [activeFlow, fitView, setEdges, setNodes, topology])
+  }, [activeFlow, setEdges, setNodes, topology])
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => fitView({ padding: 0.12, duration: 260 }))
+    return () => window.cancelAnimationFrame(frame)
+  }, [apps])
 
   const displayNodes = useMemo(
     () => nodes.map((node) => withNodeSelection(node, selectedNodeId, activeFlow, topology.edges)),
@@ -129,16 +126,6 @@ function TopologyCanvasInner({ apps }: Required<TopologyCanvasProps>) {
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap gap-2" role="toolbar" aria-label="Topology flow filters">
-                {flows.map((flow) => (
-                  <button
-                    className={`${controlClass} ${activeFlow === flow.id ? '!border-[#17211b] !bg-[#17211b] !text-[#fffdf7]' : ''}`}
-                    key={flow.id}
-                    onClick={() => setActiveFlow(flow.id)}
-                    type="button"
-                  >
-                    {flow.label}
-                  </button>
-                ))}
                 <button className={`${controlClass} border-[#315c5273] text-[#315c52]`} onClick={handleResetLayout} type="button">
                   Reset
                 </button>
@@ -149,9 +136,7 @@ function TopologyCanvasInner({ apps }: Required<TopologyCanvasProps>) {
             </div>
           </Panel>
           <Panel className="!flex !flex-wrap !items-center gap-3 border border-[#c9c1af] !bg-[#fffdf7e0] px-2.5 py-2 font-mono text-[.7rem] font-extrabold leading-none" position="bottom-center">
-            <span className="inline-flex items-center gap-2"><i className="h-[3px] w-7 bg-[#b0822e]" /> image build</span>
-            <span className="inline-flex items-center gap-2"><i className="h-[3px] w-7 bg-[#517a38]" /> running service</span>
-            <span className="inline-flex items-center gap-2"><i className="h-[3px] w-7 bg-[repeating-linear-gradient(90deg,#2d6f8f,#2d6f8f_7px,transparent_7px,transparent_12px)]" /> DNS route</span>
+            <span className="inline-flex items-center gap-2"><i className="network-key h-[3px] w-7 bg-[#517a38]" /> live network traffic</span>
           </Panel>
         </ReactFlow>
       </section>
@@ -207,7 +192,7 @@ function withEdgeState(edge: TopologyEdge, activeFlow: TopologyFlow | 'all'): To
 
   return {
     ...edge,
-    animated: !muted && flow === activeFlow,
+    animated: !muted,
     className: `${muted ? 'is-muted ' : ''}${flow === 'dns' ? '[&>path]:stroke-[#2d6f8f] [&>path]:[stroke-dasharray:8_8]' : flow === 'runtime' ? '[&>path]:stroke-[#517a38]' : '[&>path]:stroke-[#b0822e]'} [&>path]:stroke-[2.2]`,
   }
 }

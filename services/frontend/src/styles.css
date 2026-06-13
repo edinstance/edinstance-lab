@@ -7,6 +7,23 @@
   }
 
   .react-flow__edge.animated path {
-    animation-duration: 1.4s;
+    stroke-dasharray: 7 7;
+    animation-duration: 1.15s;
+  }
+
+  .network-key {
+    background-image: repeating-linear-gradient(90deg, #517a38 0 7px, transparent 7px 12px);
+    animation: network-key-flow 1.15s linear infinite;
+  }
+
+  @keyframes network-key-flow {
+    to { background-position: 12px 0; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .react-flow__edge.animated path,
+    .network-key {
+      animation: none;
+    }
   }
 }

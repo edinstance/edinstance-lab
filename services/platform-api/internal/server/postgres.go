@@ -169,8 +169,8 @@ func validatePostgresRequest(req CreatePostgresRequest) error {
 		if !validHostname(req.PublicHostname) {
 			return errors.New("public hostname must be a valid DNS hostname")
 		}
-		if len(req.PublicSourceCIDRs) == 0 {
-			return errors.New("public access requires at least one source CIDR")
+		if !req.PoolerEnabled {
+			return errors.New("public access requires PgBouncer")
 		}
 		for _, cidr := range req.PublicSourceCIDRs {
 			if _, _, err := net.ParseCIDR(cidr); err != nil {

@@ -7,7 +7,7 @@ metadata:
     app.kubernetes.io/name: platform-api
     app.kubernetes.io/part-of: edinstance-platform
 spec:
-  replicas: 2
+  replicas: 3
   selector:
     matchLabels:
       app.kubernetes.io/name: platform-api
@@ -19,6 +19,22 @@ spec:
     spec:
       serviceAccountName: platform-api
       automountServiceAccountToken: true
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: platform-api
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                topologyKey: kubernetes.io/hostname
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: platform-api
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532

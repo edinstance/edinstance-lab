@@ -93,7 +93,7 @@ func (s *Server) createApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.Replicas == 0 {
-		req.Replicas = 2
+		req.Replicas = 3
 	}
 
 	app, err := s.insertApp(req)

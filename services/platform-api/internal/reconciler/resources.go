@@ -40,6 +40,8 @@ func (r *Reconciler) deployment(spec AppSpec) *unstructured.Unstructured {
 				"spec": map[string]any{
 					"automountServiceAccountToken": false,
 					"securityContext":              podSecurityContext(),
+					"topologySpreadConstraints":    topologySpreadConstraints(labels),
+					"affinity":                     podAntiAffinity(labels),
 					"containers": []any{map[string]any{
 						"name":            "app",
 						"image":           spec.Image,
@@ -160,6 +162,12 @@ func (r *Reconciler) networkPolicy(spec AppSpec) *unstructured.Unstructured {
 						map[string]any{"protocol": "TCP", "port": int64(4318)},
 					},
 				},
+				map[string]any{
+					"to": []any{namespaceSelector(r.cfg.AppsNamespace)},
+					"ports": []any{
+						map[string]any{"protocol": "TCP", "port": int64(5432)},
+					},
+				},
 			},
 		},
 	}}
@@ -214,6 +222,29 @@ func containerResources() map[string]any {
 	return map[string]any{
 		"requests": map[string]any{"cpu": "50m", "memory": "64Mi"},
 		"limits":   map[string]any{"cpu": "250m", "memory": "256Mi"},
+	}
+}
+
+func topologySpreadConstraints(labels map[string]any) []any {
+	return []any{map[string]any{
+		"maxSkew":           int64(1),
+		"topologyKey":       "kubernetes.io/hostname",
+		"whenUnsatisfiable": "DoNotSchedule",
+		"labelSelector":     map[string]any{"matchLabels": labels},
+	}}
+}
+
+func podAntiAffinity(labels map[string]any) map[string]any {
+	return map[string]any{
+		"podAntiAffinity": map[string]any{
+			"preferredDuringSchedulingIgnoredDuringExecution": []any{map[string]any{
+				"weight": int64(100),
+				"podAffinityTerm": map[string]any{
+					"topologyKey":   "kubernetes.io/hostname",
+					"labelSelector": map[string]any{"matchLabels": labels},
+				},
+			}},
+		},
 	}
 }
 

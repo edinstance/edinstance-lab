@@ -1,23 +1,24 @@
-import { cva, type VariantProps } from "class-variance-authority";
+import { cva } from "class-variance-authority";
+import { cn } from "../../lib/utils";
+import type { VariantProps } from "class-variance-authority";
 import type { ComponentProps } from "react";
 
-import { cn } from "../../lib/utils";
-
 const buttonVariants = cva(
-  "inline-flex items-center justify-center border font-mono font-extrabold leading-none transition-colors disabled:cursor-not-allowed disabled:opacity-55",
+  "inline-flex items-center justify-center rounded-lg border font-semibold leading-none transition-colors disabled:cursor-not-allowed disabled:opacity-55",
   {
     variants: {
       variant: {
         default:
-          "border-[#17211b] bg-[#17211b] text-[#fffdf7] hover:bg-[#315c52]",
+          "border-[#8b5cf6] bg-[#8b5cf6] text-white hover:border-[#a66df2] hover:bg-[#a66df2]",
         outline:
-          "border-[#9c927f] bg-[#fffdf7e0] text-[#17211b] hover:border-[#17211b] hover:bg-[#17211b] hover:text-[#fffdf7]",
+          "border-[#494153] bg-[#211d2a] text-[#ece7f2] hover:border-[#6b5b7c] hover:bg-[#2a2434]",
         destructive:
-          "border-[#d65236] bg-transparent text-[#d65236] hover:bg-[#d65236] hover:text-white",
-        ghost: "border-transparent bg-transparent text-[#17211b] hover:bg-[#17211b0f]",
+          "border-[#9f404a] bg-transparent text-[#ff8d96] hover:bg-[#9f404a] hover:text-white",
+        ghost:
+          "border-transparent bg-transparent text-[#aaa2b5] hover:bg-white/5 hover:text-white",
       },
       size: {
-        default: "min-h-[42px] px-3 text-[.72rem] uppercase",
+        default: "min-h-[42px] px-4 text-sm",
         sm: "min-h-[30px] px-2.5 text-[.72rem]",
       },
     },
@@ -28,7 +29,13 @@ const buttonVariants = cva(
 type ButtonProps = ComponentProps<"button"> &
   VariantProps<typeof buttonVariants>;
 
-function Button({ className, variant, size, type = "button", ...props }: ButtonProps) {
+function Button({
+  className,
+  variant,
+  size,
+  type = "button",
+  ...props
+}: ButtonProps) {
   return (
     <button
       type={type}

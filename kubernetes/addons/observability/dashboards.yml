@@ -1,6 +1,75 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
+  name: grafana-dashboard-platform-applications
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  platform-applications.json: |-
+    {
+      "annotations":{"list":[]},"editable":true,"graphTooltip":1,
+      "links":[
+        {"title":"Open application logs in Explore","type":"link","url":"/explore?schemaVersion=1&panes=%7B%22apps%22:%7B%22datasource%22:%22loki%22,%22queries%22:%5B%7B%22refId%22:%22A%22,%22expr%22:%22%7Bnamespace%3D%5C%22apps%5C%22,app%3D~%5C%22$service%5C%22%7D%22%7D%5D%7D%7D","includeVars":true,"keepTime":true},
+        {"title":"Open application traces in Explore","type":"link","url":"/explore?schemaVersion=1&panes=%7B%22apps%22:%7B%22datasource%22:%22tempo%22,%22queries%22:%5B%7B%22refId%22:%22A%22,%22queryType%22:%22traceql%22,%22query%22:%22%7B%20resource.service.name%20%3D~%20%5C%22$service%5C%22%20%7D%22%7D%5D%7D%7D","includeVars":true,"keepTime":true}
+      ],
+      "panels":[
+        {"type":"stat","title":"Desired replicas","id":1,"gridPos":{"h":4,"w":4,"x":0,"y":0},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"expr":"sum(kube_deployment_spec_replicas{namespace=\"apps\",deployment=~\"$service\"})","refId":"A"}]},
+        {"type":"stat","title":"Available replicas","id":2,"gridPos":{"h":4,"w":4,"x":4,"y":0},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"expr":"sum(kube_deployment_status_replicas_available{namespace=\"apps\",deployment=~\"$service\"})","refId":"A"}]},
+        {"type":"stat","title":"Ready pods","id":3,"gridPos":{"h":4,"w":4,"x":8,"y":0},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"expr":"sum(kube_pod_status_ready{namespace=\"apps\",pod=~\"$pod\",condition=\"true\"})","refId":"A"}]},
+        {"type":"stat","title":"Restarts (24h)","id":4,"gridPos":{"h":4,"w":4,"x":12,"y":0},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"expr":"sum(increase(kube_pod_container_status_restarts_total{namespace=\"apps\",pod=~\"$pod\",container=~\"$container\"}[24h]))","refId":"A"}]},
+        {"type":"stat","title":"Warning and error logs (1h)","id":5,"gridPos":{"h":4,"w":4,"x":16,"y":0},"datasource":{"type":"loki","uid":"loki"},"targets":[{"expr":"sum(count_over_time({namespace=\"apps\",app=~\"$service\",pod=~\"$pod\",container=~\"$container\"} |~ \"(?i)(warn|error|fatal|panic)\" [1h]))","refId":"A"}]},
+        {"type":"stat","title":"Pending pods","id":6,"gridPos":{"h":4,"w":4,"x":20,"y":0},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"expr":"sum(kube_pod_status_phase{namespace=\"apps\",pod=~\"$pod\",phase=\"Pending\"})","refId":"A"}]},
+        {"type":"timeseries","title":"CPU usage by pod","id":7,"gridPos":{"h":8,"w":12,"x":0,"y":4},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"expr":"sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"apps\",pod=~\"$pod\",container=~\"$container\",container!=\"\"}[5m]))","legendFormat":"{{pod}}","refId":"A"}],"fieldConfig":{"defaults":{"unit":"cores"}}},
+        {"type":"timeseries","title":"Memory working set by pod","id":8,"gridPos":{"h":8,"w":12,"x":12,"y":4},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"expr":"sum by (pod) (container_memory_working_set_bytes{namespace=\"apps\",pod=~\"$pod\",container=~\"$container\",container!=\"\"})","legendFormat":"{{pod}}","refId":"A"}],"fieldConfig":{"defaults":{"unit":"bytes"}}},
+        {"type":"timeseries","title":"Network receive and transmit","id":9,"gridPos":{"h":8,"w":12,"x":0,"y":12},"datasource":{"type":"prometheus","uid":"prometheus"},"targets":[{"expr":"sum by (pod) (rate(container_network_receive_bytes_total{namespace=\"apps\",pod=~\"$pod\"}[5m]))","legendFormat":"receive {{pod}}","refId":"A"},{"expr":"sum by (pod) (rate(container_network_transmit_bytes_total{namespace=\"apps\",pod=~\"$pod\"}[5m]))","legendFormat":"transmit {{pod}}","refId":"B"}],"fieldConfig":{"defaults":{"unit":"Bps"}}},
+        {"type":"timeseries","title":"Log volume by pod","id":10,"gridPos":{"h":8,"w":12,"x":12,"y":12},"datasource":{"type":"loki","uid":"loki"},"targets":[{"expr":"sum by (pod) (rate({namespace=\"apps\",app=~\"$service\",pod=~\"$pod\",container=~\"$container\"}[5m]))","legendFormat":"{{pod}}","refId":"A"}]},
+        {"type":"logs","title":"Application logs","id":11,"gridPos":{"h":12,"w":24,"x":0,"y":20},"datasource":{"type":"loki","uid":"loki"},"options":{"showTime":true,"wrapLogMessage":true,"enableLogDetails":true},"targets":[{"expr":"{namespace=\"apps\",app=~\"$service\",pod=~\"$pod\",container=~\"$container\"} |~ \"(?i)$search\"","refId":"A"}]}
+      ],
+      "refresh":"30s","schemaVersion":39,"tags":["applications","kubernetes","logs","platform"],
+      "templating":{"list":[
+        {"name":"service","label":"Service","type":"query","datasource":{"type":"prometheus","uid":"prometheus"},"query":{"query":"label_values(kube_deployment_labels{namespace=\"apps\",label_app_kubernetes_io_managed_by=\"edinstance-platform\"}, deployment)","refId":"service"},"includeAll":true,"allValue":".*","refresh":2},
+        {"name":"pod","label":"Pod","type":"query","datasource":{"type":"prometheus","uid":"prometheus"},"query":{"query":"label_values(kube_pod_info{namespace=\"apps\",pod=~\"$service-.*\"}, pod)","refId":"pod"},"includeAll":true,"allValue":".*","refresh":2},
+        {"name":"container","label":"Container","type":"query","datasource":{"type":"prometheus","uid":"prometheus"},"query":{"query":"label_values(kube_pod_container_info{namespace=\"apps\",pod=~\"$pod\"}, container)","refId":"container"},"includeAll":true,"allValue":".*","refresh":2},
+        {"name":"search","label":"Log search","type":"textbox","query":"","current":{"text":"","value":""}}
+      ]},
+      "time":{"from":"now-6h","to":"now"},"timezone":"browser","title":"Platform / Applications","uid":"platform-applications","version":1
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-platform-logs-traces
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  platform-logs-traces.json: |-
+    {
+      "annotations":{"list":[]},"editable":true,"graphTooltip":1,"links":[],
+      "panels":[
+        {"type":"timeseries","title":"Log volume by namespace and severity","id":1,"gridPos":{"h":8,"w":12,"x":0,"y":0},"datasource":{"type":"loki","uid":"loki"},"targets":[{"expr":"sum by (namespace, level) (count_over_time({namespace=~\"$namespace\",container=~\"$container\"} | json | level=~\"$severity\" [5m]))","legendFormat":"{{namespace}} {{level}}","refId":"A"}]},
+        {"type":"timeseries","title":"Error log rate by service","id":2,"gridPos":{"h":8,"w":12,"x":12,"y":0},"datasource":{"type":"loki","uid":"loki"},"targets":[{"expr":"sum by (app) (rate({namespace=~\"$namespace\",app=~\"$service\"} |~ \"(?i)(error|fatal|panic)\" [5m]))","legendFormat":"{{app}}","refId":"A"}]},
+        {"type":"logs","title":"Recent error logs","id":3,"gridPos":{"h":10,"w":24,"x":0,"y":8},"datasource":{"type":"loki","uid":"loki"},"targets":[{"expr":"{namespace=~\"$namespace\",app=~\"$service\",pod=~\"$pod\",container=~\"$container\"} |~ \"(?i)($severity)\"","refId":"A"}]},
+        {"type":"timeseries","title":"Trace request rate","id":4,"gridPos":{"h":8,"w":8,"x":0,"y":18},"datasource":{"type":"tempo","uid":"tempo"},"targets":[{"queryType":"metrics","expr":"{ resource.service.name =~ \"$service\" } | rate() by (resource.service.name)","refId":"A"}]},
+        {"type":"timeseries","title":"Trace error rate","id":5,"gridPos":{"h":8,"w":8,"x":8,"y":18},"datasource":{"type":"tempo","uid":"tempo"},"targets":[{"queryType":"metrics","expr":"{ resource.service.name =~ \"$service\" && status = error } | rate() by (resource.service.name)","refId":"A"}]},
+        {"type":"timeseries","title":"Trace duration P50 / P95 / P99","id":6,"gridPos":{"h":8,"w":8,"x":16,"y":18},"datasource":{"type":"tempo","uid":"tempo"},"targets":[{"queryType":"metrics","expr":"{ resource.service.name =~ \"$service\" } | quantile_over_time(duration, .5, .95, .99)","refId":"A"}]},
+        {"type":"traces","title":"Slowest recent traces","id":7,"gridPos":{"h":10,"w":24,"x":0,"y":26},"datasource":{"type":"tempo","uid":"tempo"},"targets":[{"queryType":"traceql","query":"{ resource.service.name =~ \"$service\" && duration > 1s }","limit":100,"refId":"A"}]}
+      ],
+      "refresh":"30s","schemaVersion":39,"tags":["logs","traces","platform"],
+      "templating":{"list":[
+        {"name":"namespace","type":"query","datasource":{"type":"loki","uid":"loki"},"query":"label_values(namespace)","includeAll":true,"allValue":".*"},
+        {"name":"service","type":"query","datasource":{"type":"loki","uid":"loki"},"query":"label_values({namespace=~\"$namespace\"}, app)","includeAll":true,"allValue":".*"},
+        {"name":"pod","type":"query","datasource":{"type":"loki","uid":"loki"},"query":"label_values({namespace=~\"$namespace\",app=~\"$service\"}, pod)","includeAll":true,"allValue":".*"},
+        {"name":"container","type":"query","datasource":{"type":"loki","uid":"loki"},"query":"label_values({namespace=~\"$namespace\"}, container)","includeAll":true,"allValue":".*"},
+        {"name":"severity","type":"custom","query":"debug,info,warn,error,fatal,panic","includeAll":true,"allValue":".*"}
+      ]},
+      "time":{"from":"now-6h","to":"now"},"timezone":"browser","title":"Platform / Logs and Traces","uid":"platform-logs-traces","version":1
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
   name: grafana-dashboard-cloudnative-pg
   namespace: monitoring
   labels:
@@ -50,7 +119,11 @@ data:
       "annotations": {"list": []},
       "editable": true,
       "graphTooltip": 1,
-      "links": [],
+      "links": [
+        {"title":"Platform API logs","type":"link","url":"/explore?schemaVersion=1&panes=%7B%22api%22:%7B%22datasource%22:%22loki%22,%22queries%22:%5B%7B%22refId%22:%22A%22,%22expr%22:%22%7Bnamespace%3D%5C%22platform-system%5C%22,app%3D%5C%22platform-api%5C%22%7D%22%7D%5D%7D%7D","keepTime":true},
+        {"title":"Platform API traces","type":"link","url":"/explore?schemaVersion=1&panes=%7B%22api%22:%7B%22datasource%22:%22tempo%22,%22queries%22:%5B%7B%22refId%22:%22A%22,%22queryType%22:%22traceql%22,%22query%22:%22%7B%20resource.service.name%20%3D%20%5C%22platform-api%5C%22%20%7D%22%7D%5D%7D%7D","keepTime":true},
+        {"title":"Managed applications","type":"dashboards","dashboardUid":"platform-applications","keepTime":true}
+      ],
       "panels": [
         {"type":"stat","title":"Available replicas","id":1,"gridPos":{"h":4,"w":4,"x":0,"y":0},"targets":[{"expr":"kube_deployment_status_replicas_available{namespace=\"platform-system\",deployment=\"platform-api\"}","refId":"A"}],"fieldConfig":{"defaults":{"thresholds":{"mode":"absolute","steps":[{"color":"red","value":null},{"color":"orange","value":1},{"color":"green","value":2}]}}}},
         {"type":"stat","title":"Pending reconciliations","id":2,"gridPos":{"h":4,"w":4,"x":4,"y":0},"targets":[{"expr":"max(platform_reconciliation_pending{service_name=\"platform-api\"})","refId":"A"}]},

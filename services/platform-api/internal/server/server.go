@@ -48,6 +48,7 @@ func New(cfg config.Config, logger *slog.Logger, db *platformdb.DB, secretCipher
 	mux.HandleFunc("GET /api/apps", s.withAuth(s.listApps))
 	mux.HandleFunc("POST /api/apps", s.withAuth(s.createApp))
 	mux.HandleFunc("GET /api/apps/{name}", s.withAuth(s.getApp))
+	mux.HandleFunc("GET /api/apps/{name}/metrics", s.withAuth(s.getAppMetrics))
 	mux.HandleFunc("DELETE /api/apps/{name}", s.withAuth(s.deleteApp))
 	mux.HandleFunc("POST /api/apps/{name}/env-file", s.withAuth(s.uploadEnvFile))
 	mux.HandleFunc("GET /api/apps/{name}/env", s.withAuth(s.listEnvVars))
@@ -56,7 +57,7 @@ func New(cfg config.Config, logger *slog.Logger, db *platformdb.DB, secretCipher
 	mux.HandleFunc("GET /api/databases", s.withAuth(s.listPostgresDatabases))
 	mux.HandleFunc("POST /api/databases", s.withAuth(s.createPostgresDatabase))
 
-	return s.withCORS(otelhttp.NewHandler(mux, cfg.ServiceName))
+	return s.withCORS(otelhttp.NewHandler(s.withRequestLogging(mux), cfg.ServiceName))
 }
 
 func (s *Server) health(w http.ResponseWriter, _ *http.Request) {
@@ -67,7 +68,7 @@ func (s *Server) listApps(w http.ResponseWriter, r *http.Request) {
 	if s.db != nil {
 		apps, err := s.listAppsFromDB()
 		if err != nil {
-			s.logger.Error("failed to list apps from database", "error", err)
+			s.logger.ErrorContext(r.Context(), "failed to list apps from database", "operation", "apps.list", "error", err)
 			writeError(w, http.StatusInternalServerError, "unable to load platform apps")
 			return
 		}
@@ -103,7 +104,7 @@ func (s *Server) createApp(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusConflict, "app already exists")
 			return
 		}
-		s.logger.Error("failed to create app", "name", req.Name, "error", err)
+		s.logger.ErrorContext(r.Context(), "failed to create app", "operation", "apps.create", "app_name", req.Name, "error", err)
 		writeError(w, http.StatusInternalServerError, "unable to create app")
 		return
 	}

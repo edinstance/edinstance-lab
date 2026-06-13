@@ -3,7 +3,7 @@
 @layer utilities {
   .react-flow__node.is-muted,
   .react-flow__edge.is-muted {
-    opacity: .18;
+    opacity: 0.18;
   }
 
   .react-flow__edge.animated path {
@@ -12,12 +12,115 @@
   }
 
   .network-key {
-    background-image: repeating-linear-gradient(90deg, #517a38 0 7px, transparent 7px 12px);
+    background-image: repeating-linear-gradient(
+      90deg,
+      #517a38 0 7px,
+      transparent 7px 12px
+    );
     animation: network-key-flow 1.15s linear infinite;
   }
 
+  .railway-controls {
+    margin: 20px !important;
+    overflow: hidden;
+    border: 1px solid #393342 !important;
+    border-radius: 10px;
+    background: #17141f !important;
+    box-shadow: 0 14px 35px rgba(0, 0, 0, 0.3);
+  }
+
+  .railway-controls button {
+    border-bottom-color: #393342 !important;
+    background: #17141f !important;
+    color: #aaa2b5 !important;
+  }
+
+  .railway-controls button:hover {
+    background: #25202e !important;
+    color: white !important;
+  }
+  .railway-controls button svg {
+    fill: currentColor !important;
+  }
+
+  .section-label {
+    margin: 0 0 10px;
+    color: #777080;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+  }
+
+  .resource-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 48px;
+    padding: 0 16px;
+    border: 1px solid #342e40;
+    border-radius: 10px;
+    color: #e8e2ef;
+    text-decoration: none;
+    background: #1a1722;
+  }
+
+  .resource-row:hover {
+    border-color: #5c4c6e;
+    background: #201b29;
+  }
+  .resource-row small {
+    color: #777080;
+    text-transform: uppercase;
+  }
+  .status-pill {
+    display: inline-flex;
+    border-radius: 6px;
+    background: #5a471f;
+    padding: 6px 9px;
+    color: #edc778;
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+  .status-pill.is-good {
+    background: #17442f;
+    color: #79dfab;
+  }
+  .primary-action,
+  .secondary-action {
+    display: inline-flex;
+    min-height: 40px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    padding: 0 14px;
+    font-size: 0.82rem;
+    font-weight: 650;
+    text-decoration: none;
+  }
+  .primary-action {
+    border: 1px solid #8b5cf6;
+    background: #8b5cf6;
+    color: white;
+  }
+  .primary-action:hover {
+    background: #a66df2;
+  }
+  .secondary-action {
+    border: 1px solid #494153;
+    background: #211d2a;
+    color: #ddd5e6;
+  }
+  .secondary-action:hover {
+    border-color: #6d5d80;
+    background: #2a2434;
+  }
+
   @keyframes network-key-flow {
-    to { background-position: 12px 0; }
+    to {
+      background-position: 12px 0;
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {

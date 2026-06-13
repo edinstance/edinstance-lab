@@ -6,6 +6,7 @@ metadata:
     app.kubernetes.io/name: edinstance-platform
     app.kubernetes.io/part-of: edinstance-platform
     gateway.edinstance.uk/route-access: "true"
+    observability.edinstance.uk/otlp-access: "true"
     platform.edinstance.uk/component: api
 ---
 apiVersion: v1
@@ -16,3 +17,4 @@ metadata:
     app.kubernetes.io/name: apps
     app.kubernetes.io/part-of: edinstance-platform
     gateway.edinstance.uk/route-access: "true"
+    observability.edinstance.uk/otlp-access: "true"

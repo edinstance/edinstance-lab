@@ -9,3 +9,6 @@ resources:
   - envoy-gateway
   - observability
   - opentelemetry
+  - loki
+  - alloy
+  - tempo

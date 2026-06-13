@@ -24,7 +24,7 @@ spec:
     - from:
         - namespaceSelector:
             matchLabels:
-              gateway.edinstance.uk/route-access: "true"
+              observability.edinstance.uk/otlp-access: "true"
       ports:
         - protocol: TCP
           port: 4317
@@ -84,3 +84,14 @@ spec:
       ports:
         - protocol: TCP
           port: 443
+    # Tempo OTLP ingestion.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: tempo
+      ports:
+        - protocol: TCP
+          port: 4317

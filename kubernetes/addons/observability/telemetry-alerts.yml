@@ -1,0 +1,61 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: telemetry-health
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: telemetry-health
+      rules:
+        - alert: LokiUnavailable
+          expr: absent(up{service=~"loki.*"} == 1)
+          for: 5m
+          labels: {severity: critical}
+          annotations: {summary: "Loki is unavailable"}
+        - alert: TempoUnavailable
+          expr: absent(up{service=~"tempo.*"} == 1)
+          for: 5m
+          labels: {severity: critical}
+          annotations: {summary: "Tempo is unavailable"}
+        - alert: AlloyMissingFromNode
+          expr: count(up{job=~".*alloy.*"} == 1) < count(kube_node_info)
+          for: 10m
+          labels: {severity: warning}
+          annotations: {summary: "One or more nodes have no healthy Alloy instance"}
+        - alert: OTelCollectorExportFailures
+          expr: sum(rate(otelcol_exporter_send_failed_spans_total[5m])) > 0
+          for: 5m
+          labels: {severity: warning}
+          annotations: {summary: "OpenTelemetry Collector is failing to export spans"}
+        - alert: LokiIngestionErrors
+          expr: sum(rate(loki_discarded_samples_total[5m])) + sum(rate(loki_discarded_bytes_total[5m])) > 0
+          for: 5m
+          labels: {severity: warning}
+          annotations: {summary: "Loki is discarding log data"}
+        - alert: TempoRejectedSpans
+          expr: sum(rate(tempo_distributor_spans_received_total[5m])) > 0 and sum(rate(tempo_distributor_spans_received_total{status="error"}[5m])) > 0
+          for: 5m
+          labels: {severity: warning}
+          annotations: {summary: "Tempo is rejecting spans"}
+        - alert: TelemetryPVCUsageWarning
+          expr: 100 * kubelet_volume_stats_used_bytes{namespace="monitoring",persistentvolumeclaim=~".*(loki|tempo).*"} / kubelet_volume_stats_capacity_bytes > 75
+          for: 15m
+          labels: {severity: warning}
+          annotations: {summary: "Telemetry PVC usage is above 75%"}
+        - alert: TelemetryPVCUsageCritical
+          expr: 100 * kubelet_volume_stats_used_bytes{namespace="monitoring",persistentvolumeclaim=~".*(loki|tempo).*"} / kubelet_volume_stats_capacity_bytes > 90
+          for: 5m
+          labels: {severity: critical}
+          annotations: {summary: "Telemetry PVC usage is above 90%"}
+        - alert: TelemetryPodCrashLooping
+          expr: max_over_time(kube_pod_container_status_waiting_reason{namespace=~"monitoring|opentelemetry",reason="CrashLoopBackOff"}[5m]) > 0
+          for: 10m
+          labels: {severity: warning}
+          annotations: {summary: "A telemetry pod is crash looping"}
+        - alert: OTelCollectorMemoryLimiterDroppingData
+          expr: sum(rate(otelcol_processor_refused_spans_total{processor=~"memory_limiter.*"}[5m])) + sum(rate(otelcol_processor_refused_metric_points_total{processor=~"memory_limiter.*"}[5m])) > 0
+          for: 5m
+          labels: {severity: warning}
+          annotations: {summary: "Collector memory limiter is refusing telemetry"}

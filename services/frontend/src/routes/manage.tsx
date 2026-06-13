@@ -1,24 +1,76 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 
-import { CreateAppSection } from "../components/manage/CreateAppSection";
-import { DatabaseSection } from "../components/manage/DatabaseSection";
-import { ServicesSection } from "../components/manage/ServicesSection";
+import { CreateServiceModal } from "../components/manage/CreateServiceModal";
+import { ManageNotification } from "../components/manage/ManageNotification";
+import { ServiceDrawer } from "../components/manage/ServiceDrawer";
 import { useManageController } from "../components/manage/useManageController";
-import { buttonVariants } from "../components/ui/Button";
+import { TopologyCanvas } from "../components/TopologyCanvas";
+import type { ServiceTab } from "../components/manage/ServiceDrawer";
 
 export const Route = createFileRoute("/manage")({ component: ManagePage });
 
 function ManagePage() {
   const controller = useManageController();
+  const [selectedName, setSelectedName] = useState<string | null>(null);
+  const [tab, setTab] = useState<ServiceTab>("deployments");
+  const [creating, setCreating] = useState(false);
+  const selectedApp =
+    controller.state.apps.find((app) => app.name === selectedName) ?? null;
+
+  useEffect(() => {
+    if (
+      selectedName &&
+      !controller.state.apps.some((app) => app.name === selectedName)
+    )
+      setSelectedName(null);
+  }, [controller.state.apps, selectedName]);
+
+  function selectService(name: string) {
+    if (!controller.state.apps.some((app) => app.name === name)) return;
+    setSelectedName(name);
+    setTab("deployments");
+  }
+
   return (
-    <main className="min-h-screen p-7">
-      <header className="mx-auto mb-6 flex max-w-[1180px] items-end justify-between max-[860px]:grid max-[860px]:items-start max-[860px]:gap-4">
-        <div><p className="mb-2 mt-0 font-mono text-[.68rem] font-black uppercase leading-none text-[#66736b]">platform control</p><h1 className="m-0 text-[1.8rem] leading-none">Services</h1></div>
-        <Link className={`${buttonVariants({ variant: "outline" })} no-underline`} to="/">Service graph</Link>
-      </header>
-      <CreateAppSection state={controller.state} onSubmit={controller.createAppFromForm} />
-      <DatabaseSection state={controller.state} onSubmit={controller.createDatabaseFromForm} />
-      <ServicesSection state={controller.state} onDeleteApp={(app) => void controller.removeApp(app)} onImportEnv={(app, event) => void controller.importEnv(app, event)} onToggleEnvironment={(app) => void controller.toggleEnvironment(app)} onSaveEnvVar={(app, event) => void controller.saveEnvVar(app, event)} onDeleteEnvVar={(app, name) => void controller.removeEnvVar(app, name)} />
+    <main className="relative h-screen overflow-hidden bg-[#0d0b14] text-[#f4f1fa]">
+      <TopologyCanvas
+        apps={controller.state.apps}
+        loading={controller.state.loading}
+        selectedNodeId={selectedName}
+        onAdd={() => setCreating(true)}
+        onSelect={selectService}
+      />
+
+      {controller.state.error ? (
+        <ManageNotification kind="error" message={controller.state.error} />
+      ) : null}
+
+      {controller.state.notice ? (
+        <ManageNotification kind="notice" message={controller.state.notice} />
+      ) : null}
+
+      {selectedApp ? (
+        <ServiceDrawer
+          app={selectedApp}
+          controller={controller}
+          onClose={() => setSelectedName(null)}
+          onDeleted={() => setSelectedName(null)}
+          onTabChange={setTab}
+          tab={tab}
+        />
+      ) : null}
+
+      {creating ? (
+        <CreateServiceModal
+          controller={controller}
+          onClose={() => setCreating(false)}
+          onCreated={(name) => {
+            setCreating(false);
+            setSelectedName(name);
+          }}
+        />
+      ) : null}
     </main>
   );
 }

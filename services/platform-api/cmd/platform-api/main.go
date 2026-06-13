@@ -21,9 +21,10 @@ import (
 
 func main() {
 	cfg := config.Load()
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+	logger := slog.New(telemetry.NewSpanHandler(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: cfg.LogLevel,
-	}))
+	}))).With("service", cfg.ServiceName)
+	slog.SetDefault(logger)
 	if err := cfg.Validate(); err != nil {
 		logger.Error("invalid platform-api configuration", "error", err)
 		os.Exit(1)
@@ -35,16 +36,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	shutdownMetrics, err := telemetry.InitMetrics(context.Background(), cfg)
+	shutdownTelemetry, err := telemetry.Init(context.Background(), cfg)
 	if err != nil {
-		logger.Error("failed to initialize otel metrics", "error", err)
+		logger.Error("failed to initialize OpenTelemetry", "error", err)
 		os.Exit(1)
 	}
 	defer func() {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if err := shutdownMetrics(shutdownCtx); err != nil {
-			logger.Warn("failed to shutdown otel metrics", "error", err)
+		if err := shutdownTelemetry(shutdownCtx); err != nil {
+			logger.Warn("failed to shutdown OpenTelemetry", "error", err)
 		}
 	}()
 

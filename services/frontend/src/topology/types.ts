@@ -1,32 +1,32 @@
-import type { Edge, Node, Position } from '@xyflow/react'
+import type { Edge, Node, Position } from "@xyflow/react";
 
 export type TopologyCategory =
-  | 'build'
-  | 'dns'
-  | 'gateway'
-  | 'registry'
-  | 'service'
-  | 'system'
+  | "build"
+  | "dns"
+  | "gateway"
+  | "registry"
+  | "service"
+  | "system";
 
-export type TopologyFlow = 'runtime' | 'build' | 'dns'
+export type TopologyFlow = "runtime" | "build" | "dns";
 
-export type TopologyNodeData = {
-  title: string
-  subtitle: string
-  details: string
-  category: TopologyCategory
-  status?: string
-  facts: Record<string, string>
-  sources: string[]
-  sourcePosition?: Position
-  targetPosition?: Position
+export interface TopologyNodeData extends Record<string, unknown> {
+  title: string;
+  subtitle: string;
+  details: string;
+  category: TopologyCategory;
+  status?: string;
+  facts: Record<string, string | undefined>;
+  sources: Array<string>;
+  sourcePosition?: Position;
+  targetPosition?: Position;
 }
 
-export type TopologyNode = Node<TopologyNodeData, 'topologyNode'>
+export type TopologyNode = Node<TopologyNodeData, "topologyNode">;
 
-export type TopologyEdgeData = {
-  flow: TopologyFlow
-  label: string
+export interface TopologyEdgeData extends Record<string, unknown> {
+  flow: TopologyFlow;
+  label: string;
 }
 
-export type TopologyEdge = Edge<TopologyEdgeData>
+export type TopologyEdge = Edge<TopologyEdgeData>;

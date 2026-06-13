@@ -23,7 +23,8 @@ WORKDIR /app
 COPY --from=build --chown=node:node /app/.output ./.output
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
 COPY --from=build --chown=node:node /app/package.json ./package.json
+COPY --from=build --chown=node:node /app/instrumentation.mjs ./instrumentation.mjs
 
 USER node
 EXPOSE 3000
-CMD ["node", ".output/server/index.mjs"]
+CMD ["node", "--import", "./instrumentation.mjs", ".output/server/index.mjs"]

@@ -1,0 +1,96 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alloy-values
+  namespace: flux-system
+data:
+  values.yml: |
+    controller:
+      type: daemonset
+      tolerations:
+        - operator: Exists
+      volumes:
+        extra:
+          - name: alloy-storage
+            hostPath:
+              path: /var/lib/alloy
+              type: DirectoryOrCreate
+    alloy:
+      storagePath: /var/lib/alloy
+      mounts:
+        varlog: true
+        extra:
+          - name: alloy-storage
+            mountPath: /var/lib/alloy
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+      configMap:
+        content: |-
+          logging {
+            level = "info"
+          }
+
+          discovery.kubernetes "pods" {
+            role = "pod"
+          }
+
+          discovery.relabel "pod_logs" {
+            targets = discovery.kubernetes.pods.targets
+
+            rule { source_labels = ["__meta_kubernetes_pod_node_name"] target_label = "node" }
+            rule { source_labels = ["__meta_kubernetes_namespace"] target_label = "namespace" }
+            rule { source_labels = ["__meta_kubernetes_pod_name"] target_label = "pod" }
+            rule { source_labels = ["__meta_kubernetes_pod_container_name"] target_label = "container" }
+            rule { source_labels = ["__meta_kubernetes_pod_label_app_kubernetes_io_name"] target_label = "app" }
+            rule { source_labels = ["__meta_kubernetes_pod_uid", "__meta_kubernetes_pod_container_name"] separator = "/" target_label = "__path__" replacement = "/var/log/pods/*$1/$2/*.log" }
+            rule { target_label = "cluster" replacement = "homelab" }
+          }
+
+          local.file_match "pod_logs" {
+            path_targets = discovery.relabel.pod_logs.output
+          }
+
+          loki.source.file "pod_logs" {
+            targets    = local.file_match.pod_logs.targets
+            forward_to = [loki.process.pod_logs.receiver]
+          }
+
+          loki.process "pod_logs" {
+            forward_to = [loki.write.default.receiver]
+
+            stage.cri {}
+            stage.json {
+              expressions = {
+                level = "level",
+                severity = "severity",
+                trace_id = "trace_id",
+                span_id = "span_id",
+                request_id = "request_id",
+              }
+            }
+            stage.template {
+              source = "severity"
+              template = "{{ if .Value }}{{ .Value }}{{ else }}{{ .level }}{{ end }}"
+            }
+            stage.labels { values = { stream = "stream" } }
+            stage.replace { expression = "(?i)(\\\"?(password|token|authorization|cookie|set-cookie)\\\"?\\s*[:=]\\s*)\\\"?[^\\\",}\\s]+" replace = "$1[REDACTED]" }
+            stage.drop { expression = "(?i)alloy.*(health check|debug).*successful" }
+          }
+
+          loki.write "default" {
+            endpoint {
+              url = "http://loki-gateway.monitoring.svc.cluster.local/loki/api/v1/push"
+              batch_wait = "1s"
+              batch_size = "1MiB"
+            }
+            external_labels = { cluster = "homelab" }
+          }
+    serviceMonitor:
+      enabled: true
+      additionalLabels:
+        release: kube-prometheus-stack

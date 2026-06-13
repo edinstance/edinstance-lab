@@ -6,5 +6,7 @@ resources:
   - values-configmap.yml
   - kube-prometheus-stack.yml
   - dashboards.yml
+  - datasources.yml
+  - telemetry-alerts.yml
   - grafana-route.yml
   - networkpolicy.yml

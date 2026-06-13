@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -16,7 +17,10 @@ type Config struct {
 	AuthAudience          string
 	LogLevel              slog.Level
 	ServiceName           string
+	ServiceVersion        string
+	TraceSampleRatio      float64
 	OTLPEndpoint          string
+	PrometheusURL         string
 	DatabaseURL           string
 	PlatformEncryptionKey string
 	ReconcileEnabled      bool
@@ -35,7 +39,10 @@ func Load() Config {
 		AuthAudience:          os.Getenv("PLATFORM_AUTH_AUDIENCE"),
 		LogLevel:              logLevel(value("LOG_LEVEL", "info")),
 		ServiceName:           value("OTEL_SERVICE_NAME", "platform-api"),
+		ServiceVersion:        value("OTEL_SERVICE_VERSION", "dev"),
+		TraceSampleRatio:      traceSampleRatio(),
 		OTLPEndpoint:          value("OTEL_EXPORTER_OTLP_ENDPOINT", "http://opentelemetry-collector.opentelemetry.svc.cluster.local:4318"),
+		PrometheusURL:         value("PROMETHEUS_URL", "http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090"),
 		DatabaseURL:           databaseURL(),
 		PlatformEncryptionKey: os.Getenv("PLATFORM_ENCRYPTION_KEY"),
 		ReconcileEnabled:      strings.EqualFold(os.Getenv("PLATFORM_RECONCILE_ENABLED"), "true"),
@@ -45,6 +52,22 @@ func Load() Config {
 		GatewaySectionName:    value("PLATFORM_GATEWAY_SECTION_NAME", "http-local"),
 		Kubeconfig:            os.Getenv("KUBECONFIG"),
 	}
+}
+
+func traceSampleRatio() float64 {
+	fallback := 1.0
+	if strings.EqualFold(value("OTEL_RESOURCE_ATTRIBUTES", ""), "deployment.environment=homelab") {
+		fallback = 0.2
+	}
+	raw := value("OTEL_TRACES_SAMPLER_ARG", "")
+	if raw == "" {
+		return fallback
+	}
+	ratio, err := strconv.ParseFloat(raw, 64)
+	if err != nil || ratio < 0 || ratio > 1 {
+		return fallback
+	}
+	return ratio
 }
 
 func (c Config) Validate() error {

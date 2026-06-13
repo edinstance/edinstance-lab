@@ -1,6 +1,5 @@
-import type { ReactNode } from "react";
-
 import { cn } from "../../lib/utils";
+import type { ReactNode } from "react";
 
 export function Field({
   label,
@@ -13,7 +12,7 @@ export function Field({
 }) {
   return (
     <label className={cn("grid gap-2", className)}>
-      <span className="font-mono text-[.72rem] font-black uppercase leading-none">
+      <span className="text-xs leading-none font-semibold tracking-[.1em] text-[#8e8799] uppercase">
         {label}
       </span>
       {children}

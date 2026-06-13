@@ -63,8 +63,18 @@ spec:
               value: http-local
             - name: OTEL_SERVICE_NAME
               value: platform-api
+            - name: OTEL_SERVICE_VERSION
+              value: sha-f5016c4
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: http://opentelemetry-collector.opentelemetry.svc.cluster.local:4318
+            - name: OTEL_TRACES_SAMPLER
+              value: parentbased_traceidratio
+            - name: OTEL_TRACES_SAMPLER_ARG
+              value: "0.2"
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: deployment.environment=homelab
+            - name: PROMETHEUS_URL
+              value: http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090
             - name: PLATFORM_DATABASE_HOST
               value: platform-db-pooler-rw.platform-db.svc.cluster.local
             - name: PLATFORM_DATABASE_NAME

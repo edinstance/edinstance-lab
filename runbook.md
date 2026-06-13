@@ -671,3 +671,45 @@ services/platform-api/           Go API service source
 services/frontend/               frontend source
 scripts/                         preflight, node prep, destructive rebuild rehearsal
 ```
+# Centralized Logs And Traces
+
+Grafana is the entry point for Prometheus metrics, Loki logs, and Tempo traces. Alloy runs once per node and tails Kubernetes container stdout/stderr. Applications send OTLP metrics and traces to the OpenTelemetry Collector, which enriches telemetry and exports traces to Tempo. Loki and Tempo use Longhorn-backed local storage and retain data for seven days.
+
+Component ownership:
+
+- `kubernetes/addons/alloy`: node-level Kubernetes container log collection.
+- `kubernetes/addons/loki`: log ingestion, indexing, retention, and query.
+- `kubernetes/addons/opentelemetry`: private OTLP gateway and metadata enrichment.
+- `kubernetes/addons/tempo`: trace ingestion, retention, and query.
+- `kubernetes/addons/observability`: Grafana datasources, dashboards, and alerts.
+
+Useful LogQL queries:
+
+```logql
+{namespace="platform-system", app="platform-api"}
+{namespace="apps"} | json | level=~"warn|error"
+{namespace="platform-system"} | json | request_id="REQUEST_ID"
+{namespace="platform-system"} | json | trace_id="TRACE_ID"
+```
+
+Useful TraceQL queries:
+
+```traceql
+{ resource.service.name = "platform-api" }
+{ resource.service.name = "platform-api" && status = error }
+{ resource.service.name = "platform-api" && duration > 1s }
+```
+
+Cluster services use parent-based trace-ID ratio sampling at `20%`. Override it with `OTEL_TRACES_SAMPLER_ARG`; development defaults to `100%`. W3C Trace Context and Baggage carry parent decisions between instrumented services.
+
+## Troubleshooting Telemetry
+
+Missing logs: check that the Alloy DaemonSet has one ready pod per node, inspect Alloy errors, confirm `/var/log/pods` is mounted, and query Loki without label filters before narrowing the search. Alloy positions are retained in its node-local storage and restarts should not replay complete files.
+
+Missing traces: confirm the application namespace has `observability.edinstance.uk/otlp-access: "true"`, the collector is ready, and its exporter failure metrics are zero. Check sampling before assuming export failed. Application startup and requests must remain available when the collector or Tempo is down.
+
+Failed correlation: confirm JSON logs contain lowercase 32-character `trace_id` values, Grafana has datasource UIDs `loki` and `tempo`, and the log timestamp overlaps the trace. Trace-to-logs also requires Kubernetes namespace, pod, and container resource attributes.
+
+Storage: Loki uses a `20Gi` Longhorn PVC and Tempo uses `10Gi`, both in `monitoring`. Alerts fire at `75%` and `90%`. To expand safely, increase the chart value, reconcile Flux, confirm Longhorn volume expansion completed, and verify the filesystem reports the new size before increasing retention. Reduce retention by changing `retention_period` for Loki or `tempo.retention` for Tempo; allow the compactor time to delete expired data.
+
+Grafana Explore can pivot directly from a Loki `trace_id` field to Tempo. From a Tempo span, use Logs for this span to query Loki with the span's namespace, pod, container, and trace ID. The `Platform / Logs and Traces` dashboard provides namespace, service, pod, container, and severity filters.

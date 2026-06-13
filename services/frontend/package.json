@@ -5,10 +5,21 @@
   "scripts": {
     "dev": "vite dev --host 0.0.0.0",
     "build": "vite build",
-    "start": "node .output/server/index.mjs",
+    "start": "node --import ./instrumentation.mjs .output/server/index.mjs",
+    "prettier": "prettier --write .",
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "check": "npm run lint && npm run typecheck",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/auto-instrumentations-node": "^0.77.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.219.0",
+    "@opentelemetry/resources": "^2.8.0",
+    "@opentelemetry/sdk-node": "^0.219.0",
+    "@opentelemetry/sdk-trace-base": "^2.8.0",
+    "@opentelemetry/semantic-conventions": "^1.41.1",
     "@tanstack/react-router": "^1.170.10",
     "@tanstack/react-start": "^1.168.18",
     "@xyflow/react": "^12.11.0",
@@ -21,14 +32,21 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.1",
+    "@tanstack/eslint-config": "^0.4.0",
+    "@tanstack/eslint-plugin-query": "^5.101.0",
     "@types/node": "^24.10.1",
     "@types/pg": "^8.20.0",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.2",
+    "eslint": "^10.5.0",
+    "eslint-config-prettier": "^10.1.8",
     "nitro": "npm:nitro-nightly@3.0.1-20260611-123640-7765bcb7",
+    "prettier": "^3.8.4",
+    "prettier-plugin-tailwindcss": "^0.8.0",
     "tailwindcss": "^4.3.1",
     "typescript": "^6.0.3",
+    "typescript-eslint": "^8.61.0",
     "vite": "8.0.16"
   }
 }

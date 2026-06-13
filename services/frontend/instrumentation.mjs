@@ -44,10 +44,12 @@ const sdk = new NodeSDK({
   ],
 });
 
-sdk
-  .start()
-  .then(() => console.info("OpenTelemetry SDK started successfully"))
-  .catch((error) => console.error("OpenTelemetry SDK failed to start", error));
+try {
+  sdk.start();
+  console.info("OpenTelemetry SDK started successfully");
+} catch (error) {
+  console.error("OpenTelemetry SDK failed to start", error);
+}
 
 for (const level of ["info", "warn", "error"]) {
   const original = console[level].bind(console);

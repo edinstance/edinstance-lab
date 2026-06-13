@@ -14,7 +14,7 @@ export const Route = createFileRoute("/login")({
 type Mode = "login" | "signup";
 
 const tabClass =
-  "min-h-10 border border-[#9c927f] bg-transparent font-mono text-[.72rem] font-black uppercase leading-none text-[#66736b] disabled:cursor-not-allowed disabled:opacity-55";
+  "min-h-11 border border-[#3d3648] bg-[#100e17] font-mono text-[.72rem] font-black uppercase leading-none text-[#91899f] transition disabled:cursor-not-allowed disabled:opacity-55 hover:text-white";
 
 function LoginPage() {
   const navigate = useNavigate();
@@ -50,16 +50,16 @@ function LoginPage() {
   }
 
   return (
-    <main className="grid min-h-screen place-items-center p-7">
+    <main className="grid min-h-screen place-items-center bg-[#0d0b14] p-7 text-[#f4f1fa]">
       <form
-        className="grid w-[min(420px,calc(100vw-48px))] gap-4.5 border border-[#c9c1af] bg-[#fffdf7f0] p-6 shadow-[0_18px_45px_rgba(50,45,32,.14)]"
+        className="grid w-[min(460px,calc(100vw-48px))] gap-5 rounded-2xl border border-[#3a3445] bg-[#17141f] p-7 shadow-[0_28px_90px_rgba(0,0,0,.5)]"
         onSubmit={(event) => void handleSubmit(event)}
       >
         <div>
-          <p className="mt-0 mb-2 font-mono text-[.68rem] leading-none font-black text-[#66736b] uppercase">
+          <p className="mt-0 mb-2 font-mono text-[.68rem] leading-none font-black tracking-[.16em] text-[#8f879e] uppercase">
             edinstance
           </p>
-          <h1 className="m-0 text-[1.8rem] leading-none">
+          <h1 className="m-0 text-[2rem] leading-none font-semibold tracking-[-.025em] text-[#f4f1fa]">
             {mode === "login" ? "Sign in" : "Create account"}
           </h1>
         </div>
@@ -70,7 +70,7 @@ function LoginPage() {
         >
           <button
             aria-selected={mode === "login"}
-            className={`${tabClass} ${mode === "login" ? "!bg-[#17211b] !text-[#fffdf7]" : ""}`}
+            className={`${tabClass} rounded-l-lg ${mode === "login" ? "!border-[#8b5cf6] !bg-[#2b2140] !text-white" : ""}`}
             role="tab"
             type="button"
             onClick={() => selectMode("login")}
@@ -79,7 +79,7 @@ function LoginPage() {
           </button>
           <button
             aria-selected={mode === "signup"}
-            className={`${tabClass} -ml-px ${mode === "signup" ? "!bg-[#17211b] !text-[#fffdf7]" : ""}`}
+            className={`${tabClass} -ml-px rounded-r-lg ${mode === "signup" ? "!border-[#8b5cf6] !bg-[#2b2140] !text-white" : ""}`}
             role="tab"
             type="button"
             onClick={() => selectMode("signup")}
@@ -131,7 +131,11 @@ function LoginPage() {
             />
           </Field>
         ) : null}
-        {error ? <p className="m-0 text-[#d65236]">{error}</p> : null}
+        {error ? (
+          <p className="m-0 rounded-lg border border-[#6b2c38] bg-[#2a1118] px-3 py-2 text-sm text-[#ff9ba7]">
+            {error}
+          </p>
+        ) : null}
         <Button disabled={submitting} type="submit">
           {submitting
             ? "Checking..."

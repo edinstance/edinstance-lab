@@ -22,6 +22,7 @@ import type {
 } from "../topology/types";
 
 const nodeTypes: NodeTypes = { topologyNode: TopologyNode };
+const emptyApps: Array<PlatformApp> = [];
 
 interface Props {
   apps?: Array<PlatformApp>;
@@ -35,7 +36,7 @@ export function TopologyCanvas(props: Props) {
   return (
     <ReactFlowProvider>
       <TopologyCanvasInner
-        apps={props.apps ?? []}
+        apps={props.apps ?? emptyApps}
         loading={props.loading ?? false}
         onAdd={props.onAdd}
         onSelect={props.onSelect}
@@ -55,6 +56,7 @@ function TopologyCanvasInner({
   Pick<Props, "onSelect" | "onAdd">) {
   const topology = useMemo(() => createServiceTopology(apps), [apps]);
   const { fitView } = useReactFlow<TopologyNodeType, TopologyEdge>();
+  
   const [nodes, setNodes, onNodesChange] = useNodesState<TopologyNodeType>(
     topology.nodes,
   );
@@ -63,14 +65,19 @@ function TopologyCanvasInner({
   );
 
   useEffect(() => {
-    setNodes(
-      topology.nodes.map((node) => ({
-        ...node,
-        selected: node.id === selectedNodeId,
-      })),
-    );
+    setNodes(topology.nodes);
     setEdges(topology.edges);
-  }, [selectedNodeId, setEdges, setNodes, topology]);
+  }, [setEdges, setNodes, topology]);
+
+  useEffect(() => {
+    setNodes((currentNodes) =>
+      currentNodes.map((node) => {
+        const selected = node.id === selectedNodeId;
+        return node.selected === selected ? node : { ...node, selected };
+      }),
+    );
+  }, [selectedNodeId, setNodes]);
+
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
       void fitView({ padding: 0.18, duration: 420 });

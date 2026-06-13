@@ -13,7 +13,7 @@ import {
 } from '@xyflow/react'
 import { Link } from '@tanstack/react-router'
 import '@xyflow/react/dist/style.css'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import { createServiceTopology, type PlatformApp } from '../topology/topology'
 import type { TopologyEdge, TopologyFlow, TopologyNode as TopologyNodeType } from '../topology/types'
@@ -60,7 +60,13 @@ function TopologyCanvasInner({ apps }: Required<TopologyCanvasProps>) {
   )
 
   const [nodes, setNodes, onNodesChange] = useNodesState<TopologyNodeType>(filteredNodes)
-  const [edges, , onEdgesChange] = useEdgesState<TopologyEdge>(filteredEdges)
+  const [edges, setEdges, onEdgesChange] = useEdgesState<TopologyEdge>(filteredEdges)
+
+  useEffect(() => {
+    setNodes(withFlowState(cloneTopologyNodes(topology.nodes), topology.edges, activeFlow))
+    setEdges(topology.edges.map((edge) => withEdgeState(edge, activeFlow)))
+    window.requestAnimationFrame(() => fitView({ padding: 0.12, duration: 260 }))
+  }, [activeFlow, fitView, setEdges, setNodes, topology])
 
   const displayNodes = useMemo(
     () => nodes.map((node) => withNodeSelection(node, selectedNodeId, activeFlow, topology.edges)),

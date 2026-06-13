@@ -1,6 +1,7 @@
 package server
 
 import (
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -196,4 +197,65 @@ func (s *Server) replaceEnvVars(serviceID string, vars map[string]string) error 
 		return fmt.Errorf("commit env update: %w", err)
 	}
 	return nil
+}
+
+func (s *Server) listEnvVarMetadata(serviceID string) ([]EnvVarMetadata, error) {
+	rows, err := s.db.Query(`
+		select name, is_secret
+		from service_env_vars
+		where service_id = $1::uuid
+		order by name
+	`, serviceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	vars := []EnvVarMetadata{}
+	for rows.Next() {
+		var variable EnvVarMetadata
+		if err := rows.Scan(&variable.Name, &variable.Secret); err != nil {
+			return nil, err
+		}
+		vars = append(vars, variable)
+	}
+	return vars, rows.Err()
+}
+
+func (s *Server) upsertEnvVar(serviceID, name, encryptedValue string) error {
+	_, err := s.db.Exec(`
+		insert into service_env_vars (id, service_id, name, value_encrypted, is_secret)
+		values ($1::uuid, $2::uuid, $3, $4, true)
+		on conflict (service_id, name)
+		do update set value_encrypted = excluded.value_encrypted, is_secret = true, updated_at = now()
+	`, uuid.NewString(), serviceID, name, encryptedValue)
+	if err != nil {
+		return err
+	}
+	return s.enqueueEnvReconciliation(serviceID)
+}
+
+func (s *Server) deleteEnvVarByName(serviceID, name string) error {
+	result, err := s.db.Exec(`delete from service_env_vars where service_id = $1::uuid and name = $2`, serviceID, name)
+	if err != nil {
+		return err
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return s.enqueueEnvReconciliation(serviceID)
+}
+
+func (s *Server) enqueueEnvReconciliation(serviceID string) error {
+	_, err := s.db.Exec(`
+		update services
+		set desired_generation = desired_generation + 1,
+			reconcile_state = 'pending', reconcile_attempts = 0,
+			next_reconcile_at = now(), last_reconcile_error = null, updated_at = now()
+		where id = $1::uuid and deletion_requested_at is null
+	`, serviceID)
+	return err
 }

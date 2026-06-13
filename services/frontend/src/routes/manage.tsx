@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { type ChangeEvent, type FormEvent, useEffect, useState } from 'react'
 
-import { createApp, createDatabase, deleteApp, getSession, listApps, listDatabases, uploadEnvFile, type PostgresDatabase } from '../platform/api'
+import { createApp, createDatabase, deleteApp, deleteEnvVar, getSession, listApps, listDatabases, listEnvVars, setEnvVar, uploadEnvFile, type EnvVariable, type PostgresDatabase } from '../platform/api'
 import type { PlatformApp } from '../topology/topology'
 
 const fieldClass = 'grid gap-2 [&>span]:font-mono [&>span]:text-[.72rem] [&>span]:font-black [&>span]:uppercase [&>span]:leading-none [&>input]:min-h-[42px] [&>input]:border [&>input]:border-[#9c927f] [&>input]:bg-[#fffdf7] [&>input]:px-3 [&>input]:font-mono [&>input]:text-base [&>input]:font-black [&>input]:text-[#17211b]'
@@ -26,11 +26,15 @@ function ManagePage() {
   })
   const [saving, setSaving] = useState(false)
   const [busyApp, setBusyApp] = useState<string | null>(null)
+  const [envApp, setEnvApp] = useState<string | null>(null)
+  const [envVars, setEnvVars] = useState<Record<string, EnvVariable[]>>({})
+  const [envDraft, setEnvDraft] = useState({ name: '', value: '' })
   const [notice, setNotice] = useState<string | null>(null)
   const [databases, setDatabases] = useState<PostgresDatabase[]>([])
   const [databaseForm, setDatabaseForm] = useState({
     name: '', database: 'app', owner: 'app', password: '', version: '17', instances: '3',
     storageSize: '20Gi', poolerEnabled: true, poolerInstances: '2', poolMode: 'session' as 'session' | 'transaction',
+    public: false, publicHostname: '', publicSourceCidrs: '',
   })
 
   async function refreshApps() {
@@ -86,6 +90,8 @@ function ManagePage() {
         instances: Number(databaseForm.instances), storageSize: databaseForm.storageSize.trim(),
         poolerEnabled: databaseForm.poolerEnabled, poolerInstances: Number(databaseForm.poolerInstances),
         poolMode: databaseForm.poolMode,
+        public: databaseForm.public, publicHostname: databaseForm.publicHostname.trim(),
+        publicSourceCidrs: databaseForm.publicSourceCidrs.split(',').map((cidr) => cidr.trim()).filter(Boolean),
       })
       setDatabases((current) => [...current, database])
       setDatabaseForm((current) => ({ ...current, name: '', password: '' }))
@@ -185,10 +191,69 @@ function ManagePage() {
     setNotice(null)
     try {
       const result = await uploadEnvFile(app.name, await file.text())
+      setEnvVars((current) => ({ ...current, [app.name]: result.env }))
       setNotice(`${app.name} env updated: ${result.env.length} secrets stored`)
       await refreshApps()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to upload env file')
+    } finally {
+      setBusyApp(null)
+    }
+  }
+
+  async function toggleEnvironment(app: PlatformApp) {
+    if (envApp === app.name) {
+      setEnvApp(null)
+      return
+    }
+    setEnvApp(app.name)
+    setEnvDraft({ name: '', value: '' })
+    if (!envVars[app.name]) {
+      setBusyApp(app.name)
+      try {
+        const variables = await listEnvVars(app.name)
+        setEnvVars((current) => ({ ...current, [app.name]: variables }))
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unable to load environment variables')
+      } finally {
+        setBusyApp(null)
+      }
+    }
+  }
+
+  async function handleSetEnvVar(app: PlatformApp, event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const name = envDraft.name.trim()
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+      setError('Environment variable names must use letters, numbers, and underscores')
+      return
+    }
+    setBusyApp(app.name)
+    setError(null)
+    try {
+      const variable = await setEnvVar(app.name, name, envDraft.value)
+      setEnvVars((current) => ({
+        ...current,
+        [app.name]: [...(current[app.name] ?? []).filter((item) => item.name !== name), variable].sort((a, b) => a.name.localeCompare(b.name)),
+      }))
+      setEnvDraft({ name: '', value: '' })
+      setNotice(`${name} saved; ${app.name} reconciliation requested`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to save environment variable')
+    } finally {
+      setBusyApp(null)
+    }
+  }
+
+  async function handleDeleteEnvVar(app: PlatformApp, name: string) {
+    setBusyApp(app.name)
+    setError(null)
+    try {
+      await deleteEnvVar(app.name, name)
+      setEnvVars((current) => ({ ...current, [app.name]: (current[app.name] ?? []).filter((item) => item.name !== name) }))
+      setNotice(`${name} deleted; ${app.name} reconciliation requested`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to delete environment variable')
     } finally {
       setBusyApp(null)
     }
@@ -251,9 +316,13 @@ function ManagePage() {
           <label className={fieldClass}><span>Pool mode</span><select className="min-h-[42px] border border-[#9c927f] bg-[#fffdf7] px-3 font-mono font-black" disabled={!databaseForm.poolerEnabled} value={databaseForm.poolMode} onChange={(e) => setDatabaseForm({ ...databaseForm, poolMode: e.target.value as 'session' | 'transaction' })}><option value="session">session</option><option value="transaction">transaction</option></select></label>
           <label className="flex items-center gap-2 font-mono text-sm font-black"><input type="checkbox" checked={databaseForm.poolerEnabled} onChange={(e) => setDatabaseForm({ ...databaseForm, poolerEnabled: e.target.checked })} /> Enable PgBouncer</label>
           <label className={fieldClass}><span>Pooler replicas</span><input min="1" max="5" type="number" disabled={!databaseForm.poolerEnabled} value={databaseForm.poolerInstances} onChange={(e) => setDatabaseForm({ ...databaseForm, poolerInstances: e.target.value })} /></label>
+          <label className="flex items-center gap-2 font-mono text-sm font-black"><input type="checkbox" checked={databaseForm.public} onChange={(e) => setDatabaseForm({ ...databaseForm, public: e.target.checked })} /> Public TCP access</label>
+          <label className={fieldClass}><span>Public hostname</span><input required={databaseForm.public} disabled={!databaseForm.public} placeholder="db.edinstance.uk" value={databaseForm.publicHostname} onChange={(e) => setDatabaseForm({ ...databaseForm, publicHostname: e.target.value })} /></label>
+          <label className={`${fieldClass} col-span-2 max-[860px]:col-auto`}><span>Allowed source CIDRs</span><input required={databaseForm.public} disabled={!databaseForm.public} placeholder="203.0.113.10/32, 198.51.100.0/24" value={databaseForm.publicSourceCidrs} onChange={(e) => setDatabaseForm({ ...databaseForm, publicSourceCidrs: e.target.value })} /></label>
           <button className={`${buttonClass} min-h-[42px] self-end`} disabled={saving} type="submit">Create database</button>
         </form>
-        {databases.length > 0 ? <div className="border-t border-[#c9c1af] p-4">{databases.map((database) => <article className="mb-3 grid gap-1 font-mono text-sm last:mb-0" key={database.name}><strong>{database.name} · PostgreSQL {database.version} · {database.status}</strong><code className="text-[#2d6f8f]">{database.host}:5432/{database.database}</code><span>Credentials Secret: {database.credentialsSecret} · {database.instances} DB replicas{database.poolerEnabled ? ` · ${database.poolerInstances} PgBouncer (${database.poolMode})` : ''}</span></article>)}</div> : null}
+        {databaseForm.public ? <p className="m-0 border-t border-[#c9c1af] px-4 py-3 font-mono text-xs font-bold text-[#b0822e]">Creates a dedicated MetalLB address on port 5432. Point DNS to your WAN IP and forward TCP 5432 to the assigned MetalLB IP. Use narrow source CIDRs.</p> : null}
+        {databases.length > 0 ? <div className="border-t border-[#c9c1af] p-4">{databases.map((database) => <article className="mb-3 grid gap-1 font-mono text-sm last:mb-0" key={database.name}><strong>{database.name} · PostgreSQL {database.version} · {database.status}</strong><code className="text-[#2d6f8f]">{database.host}:5432/{database.database}</code>{database.public ? <code className="text-[#d65236]">Public: {database.publicHostname}:5432 · allow {database.publicSourceCidrs?.join(', ')}</code> : null}<span>Credentials Secret: {database.credentialsSecret} · {database.instances} DB replicas{database.poolerEnabled ? ` · ${database.poolerInstances} PgBouncer (${database.poolMode})` : ''}</span></article>)}</div> : null}
       </section>
 
       <section className="mx-auto max-w-[1180px] overflow-hidden border border-[#c9c1af] bg-[#fffdf7e6]" aria-label="Managed platform services">
@@ -268,7 +337,8 @@ function ManagePage() {
         {error ? <p className="m-0 px-4 py-[18px] font-mono text-[.82rem] font-extrabold leading-[1.4] text-[#d65236]">{error}</p> : null}
         {!loading && !error && apps.length === 0 ? <p className="m-0 px-4 py-[18px] font-mono text-[.82rem] font-extrabold leading-[1.4]">No platform services yet.</p> : null}
         {apps.map((app) => (
-          <article className={`${rowClass} border-t border-[#c9c1afbf] [&>*]:min-w-0 [&>*]:[overflow-wrap:anywhere]`} key={app.name}>
+          <article className="border-t border-[#c9c1afbf]" key={app.name}>
+          <div className={`${rowClass} [&>*]:min-w-0 [&>*]:[overflow-wrap:anywhere]`}>
             <strong className="font-mono text-[.9rem] font-black leading-[1.3]">{app.name}</strong>
             <span className="flex content-start flex-wrap gap-2">
               <span className={`border px-[7px] py-[5px] font-mono text-[.62rem] font-black uppercase leading-none ${app.ready ? 'border-[#517a3861] text-[#517a38]' : 'border-[#b0822e75] text-[#b0822e]'}`}>{app.status}</span>
@@ -284,10 +354,30 @@ function ManagePage() {
                 <input className="absolute h-px w-px opacity-0" accept=".env,text/plain" type="file" onChange={(event) => void handleEnvFile(app, event)} />
                 <span className={`${buttonClass} inline-flex items-center`}>{busyApp === app.name ? 'Working...' : 'Upload env'}</span>
               </label>
+              <button className={buttonClass} disabled={busyApp === app.name} type="button" onClick={() => void toggleEnvironment(app)}>
+                {envApp === app.name ? 'Close env' : 'Environment'}
+              </button>
               <button className={buttonClass} disabled={busyApp === app.name} type="button" onClick={() => void handleDeleteApp(app)}>
                 Delete
               </button>
             </span>
+          </div>
+          {envApp === app.name ? <section className="grid gap-4 border-t border-[#c9c1afbf] bg-[#17211b08] p-4" aria-label={`${app.name} environment variables`}>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div><p className="m-0 font-mono text-[.68rem] font-black uppercase text-[#66736b]">Runtime configuration</p><h3 className="m-0 text-xl">Environment variables</h3></div>
+              <label className="inline-flex cursor-pointer"><input className="absolute h-px w-px opacity-0" accept=".env,text/plain" type="file" onChange={(event) => void handleEnvFile(app, event)} /><span className={`${buttonClass} inline-flex items-center`}>Import .env</span></label>
+            </div>
+            <div className="grid gap-2">
+              {(envVars[app.name] ?? []).map((variable) => <div className="grid grid-cols-[minmax(180px,1fr)_2fr_auto] items-center gap-3 border border-[#c9c1af] bg-[#fffdf7] px-3 py-2 max-[700px]:grid-cols-1" key={variable.name}><code className="font-black">{variable.name}</code><span className="font-mono text-sm text-[#66736b]">••••••••••••</span><span className="flex gap-2"><button className={buttonClass} type="button" onClick={() => setEnvDraft({ name: variable.name, value: '' })}>Replace</button><button className={buttonClass} disabled={busyApp === app.name} type="button" onClick={() => void handleDeleteEnvVar(app, variable.name)}>Delete</button></span></div>)}
+              {(envVars[app.name] ?? []).length === 0 && busyApp !== app.name ? <p className="m-0 font-mono text-sm text-[#66736b]">No environment variables configured.</p> : null}
+            </div>
+            <form className="grid grid-cols-[1fr_2fr_auto] gap-3 max-[700px]:grid-cols-1" onSubmit={(event) => void handleSetEnvVar(app, event)}>
+              <label className={fieldClass}><span>Variable</span><input required placeholder="DATABASE_URL" value={envDraft.name} onChange={(event) => setEnvDraft({ ...envDraft, name: event.target.value.toUpperCase() })} /></label>
+              <label className={fieldClass}><span>Value {envDraft.name && (envVars[app.name] ?? []).some((item) => item.name === envDraft.name) ? '(replaces existing)' : ''}</span><input required type="password" value={envDraft.value} onChange={(event) => setEnvDraft({ ...envDraft, value: event.target.value })} /></label>
+              <button className={`${buttonClass} min-h-[42px] self-end`} disabled={busyApp === app.name} type="submit">Save variable</button>
+            </form>
+            <p className="m-0 font-mono text-xs text-[#66736b]">Values are encrypted at rest and are never returned by the API. Saving or deleting requests a workload rollout.</p>
+          </section> : null}
           </article>
         ))}
       </section>

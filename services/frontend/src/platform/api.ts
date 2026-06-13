@@ -22,6 +22,8 @@ export type EnvUploadResult = {
   }>
 }
 
+export type EnvVariable = { name: string; secret: boolean }
+
 export type PostgresDatabase = {
   name: string
   namespace: string
@@ -33,6 +35,9 @@ export type PostgresDatabase = {
   poolerEnabled: boolean
   poolerInstances: number
   poolMode: 'session' | 'transaction'
+  public: boolean
+  publicHostname?: string
+  publicSourceCidrs?: string[]
   host: string
   credentialsSecret: string
   status: string
@@ -138,6 +143,29 @@ export async function uploadEnvFile(name: string, content: string): Promise<EnvU
     throw new Error(await readError(response, 'Unable to upload env file'))
   }
   return response.json() as Promise<EnvUploadResult>
+}
+
+export async function listEnvVars(name: string): Promise<EnvVariable[]> {
+  const response = await apiFetch(`${apiBase}/api/apps/${encodeURIComponent(name)}/env`, { headers: await authHeaders() })
+  if (!response.ok) throw new Error(await readError(response, 'Unable to load environment variables'))
+  return ((await response.json()) as { env: EnvVariable[] }).env
+}
+
+export async function setEnvVar(app: string, name: string, value: string): Promise<EnvVariable> {
+  const response = await apiFetch(`${apiBase}/api/apps/${encodeURIComponent(app)}/env/${encodeURIComponent(name)}`, {
+    method: 'PUT',
+    headers: { ...(await authHeaders()), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ value }),
+  })
+  if (!response.ok) throw new Error(await readError(response, 'Unable to save environment variable'))
+  return response.json() as Promise<EnvVariable>
+}
+
+export async function deleteEnvVar(app: string, name: string): Promise<void> {
+  const response = await apiFetch(`${apiBase}/api/apps/${encodeURIComponent(app)}/env/${encodeURIComponent(name)}`, {
+    method: 'DELETE', headers: await authHeaders(),
+  })
+  if (!response.ok) throw new Error(await readError(response, 'Unable to delete environment variable'))
 }
 
 export async function listDatabases(): Promise<PostgresDatabase[]> {

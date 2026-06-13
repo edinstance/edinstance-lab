@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"regexp"
 	"strings"
@@ -22,7 +23,8 @@ func (s *Server) listPostgresDatabases(w http.ResponseWriter, _ *http.Request) {
 	}
 	rows, err := s.db.Query(`
 		select name, namespace, database_name, owner_name, version, instances, storage_size,
-			pooler_enabled, pooler_instances, pool_mode, status
+			pooler_enabled, pooler_instances, pool_mode, public, public_hostname,
+			public_source_cidrs, status
 		from postgres_databases order by name
 	`)
 	if err != nil {
@@ -35,7 +37,8 @@ func (s *Server) listPostgresDatabases(w http.ResponseWriter, _ *http.Request) {
 		var database PostgresDatabase
 		if err := rows.Scan(&database.Name, &database.Namespace, &database.Database, &database.Owner,
 			&database.Version, &database.Instances, &database.StorageSize, &database.PoolerEnabled,
-			&database.PoolerInstances, &database.PoolMode, &database.Status); err != nil {
+			&database.PoolerInstances, &database.PoolMode, &database.Public,
+			&database.PublicHostname, &database.PublicSourceCIDRs, &database.Status); err != nil {
 			writeError(w, http.StatusInternalServerError, "unable to load databases")
 			return
 		}
@@ -75,6 +78,8 @@ func (s *Server) createPostgresDatabase(w http.ResponseWriter, r *http.Request) 
 		Password: req.Password, Version: req.Version, Instances: req.Instances,
 		StorageSize: req.StorageSize, PoolerEnabled: req.PoolerEnabled,
 		PoolerInstances: req.PoolerInstances, PoolMode: req.PoolMode,
+		Public: req.Public, PublicHostname: req.PublicHostname,
+		PublicSourceCIDRs: req.PublicSourceCIDRs,
 	}
 	if err := s.reconciler.ReconcilePostgres(r.Context(), spec); err != nil {
 		s.logger.Error("failed to reconcile postgres database", "name", req.Name, "error", err)
@@ -84,10 +89,12 @@ func (s *Server) createPostgresDatabase(w http.ResponseWriter, r *http.Request) 
 	_, err := s.db.Exec(`
 		insert into postgres_databases
 			(id, name, namespace, storage_size, version, status, instances, database_name,
-			 owner_name, pooler_enabled, pooler_instances, pool_mode)
-		values ($1::uuid,$2,$3,$4,$5,'provisioning',$6,$7,$8,$9,$10,$11)
+			 owner_name, pooler_enabled, pooler_instances, pool_mode, public, public_hostname,
+			 public_source_cidrs)
+		values ($1::uuid,$2,$3,$4,$5,'provisioning',$6,$7,$8,$9,$10,$11,$12,$13,$14)
 	`, uuid.NewString(), req.Name, namespace, req.StorageSize, req.Version, req.Instances,
-		req.Database, req.Owner, req.PoolerEnabled, req.PoolerInstances, req.PoolMode)
+		req.Database, req.Owner, req.PoolerEnabled, req.PoolerInstances, req.PoolMode,
+		req.Public, req.PublicHostname, req.PublicSourceCIDRs)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
@@ -102,6 +109,8 @@ func (s *Server) createPostgresDatabase(w http.ResponseWriter, r *http.Request) 
 		Version: req.Version, Instances: req.Instances, StorageSize: req.StorageSize,
 		PoolerEnabled: req.PoolerEnabled, PoolerInstances: req.PoolerInstances,
 		PoolMode: req.PoolMode, Status: "provisioning",
+		Public: req.Public, PublicHostname: req.PublicHostname,
+		PublicSourceCIDRs: req.PublicSourceCIDRs,
 	}
 	populatePostgresConnection(&database)
 	writeJSON(w, http.StatusCreated, database)
@@ -156,7 +165,32 @@ func validatePostgresRequest(req CreatePostgresRequest) error {
 	if req.PoolMode != "session" && req.PoolMode != "transaction" {
 		return errors.New("pool mode must be session or transaction")
 	}
+	if req.Public {
+		if !validHostname(req.PublicHostname) {
+			return errors.New("public hostname must be a valid DNS hostname")
+		}
+		if len(req.PublicSourceCIDRs) == 0 {
+			return errors.New("public access requires at least one source CIDR")
+		}
+		for _, cidr := range req.PublicSourceCIDRs {
+			if _, _, err := net.ParseCIDR(cidr); err != nil {
+				return fmt.Errorf("invalid public source CIDR %q", cidr)
+			}
+		}
+	}
 	return nil
+}
+
+func validHostname(host string) bool {
+	if len(host) < 1 || len(host) > 253 || strings.HasPrefix(host, ".") || strings.HasSuffix(host, ".") {
+		return false
+	}
+	for _, label := range strings.Split(host, ".") {
+		if !appNamePattern.MatchString(label) {
+			return false
+		}
+	}
+	return true
 }
 
 func populatePostgresConnection(database *PostgresDatabase) {

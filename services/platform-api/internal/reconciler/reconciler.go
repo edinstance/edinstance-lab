@@ -34,17 +34,20 @@ type AppSpec struct {
 }
 
 type PostgresSpec struct {
-	Name            string
-	Namespace       string
-	Database        string
-	Owner           string
-	Password        string
-	Version         string
-	Instances       int
-	StorageSize     string
-	PoolerEnabled   bool
-	PoolerInstances int
-	PoolMode        string
+	Name              string
+	Namespace         string
+	Database          string
+	Owner             string
+	Password          string
+	Version           string
+	Instances         int
+	StorageSize       string
+	PoolerEnabled     bool
+	PoolerInstances   int
+	PoolMode          string
+	Public            bool
+	PublicHostname    string
+	PublicSourceCIDRs []string
 }
 
 func New(ctx context.Context, cfg config.Config, db *platformdb.DB, cipher *platformsecrets.Cipher) (*Reconciler, error) {
@@ -107,6 +110,9 @@ func (r *Reconciler) ReconcilePostgres(ctx context.Context, spec PostgresSpec) e
 	}
 	if spec.PoolerEnabled {
 		resources = append(resources, r.postgresPooler(spec))
+	}
+	if spec.Public {
+		resources = append(resources, r.postgresPublicService(spec))
 	}
 	for _, resource := range resources {
 		if err := r.apply(ctx, resource); err != nil {

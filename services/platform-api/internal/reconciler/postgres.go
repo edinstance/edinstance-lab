@@ -60,3 +60,34 @@ func (r *Reconciler) postgresPooler(spec PostgresSpec) *unstructured.Unstructure
 		},
 	}}
 }
+
+func (r *Reconciler) postgresPublicService(spec PostgresSpec) *unstructured.Unstructured {
+	selector := map[string]any{
+		"cnpg.io/cluster": spec.Name,
+		"role":            "primary",
+	}
+	if spec.PoolerEnabled {
+		selector = map[string]any{
+			"cnpg.io/podRole":    "pooler",
+			"cnpg.io/poolerName": spec.Name + "-pooler-rw",
+		}
+	}
+	return &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "v1", "kind": "Service",
+		"metadata": map[string]any{
+			"name": spec.Name + "-public", "namespace": spec.Namespace,
+			"annotations": map[string]any{
+				"external-dns.alpha.kubernetes.io/hostname": spec.PublicHostname,
+				"platform.edinstance.uk/exposure":           "public-postgresql",
+			},
+		},
+		"spec": map[string]any{
+			"type": "LoadBalancer", "externalTrafficPolicy": "Local",
+			"loadBalancerSourceRanges": spec.PublicSourceCIDRs,
+			"selector":                 selector,
+			"ports": []any{map[string]any{
+				"name": "postgresql", "protocol": "TCP", "port": int64(5432), "targetPort": int64(5432),
+			}},
+		},
+	}}
+}

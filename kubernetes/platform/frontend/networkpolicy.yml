@@ -31,3 +31,13 @@ spec:
           port: 53
         - protocol: TCP
           port: 53
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: platform-db
+          podSelector:
+            matchLabels:
+              cnpg.io/poolerName: platform-db-pooler-rw
+      ports:
+        - protocol: TCP
+          port: 5432

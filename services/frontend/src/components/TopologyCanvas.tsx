@@ -63,20 +63,19 @@ function TopologyCanvasInner({
   const [edges, setEdges, onEdgesChange] = useEdgesState<TopologyEdge>(
     topology.edges,
   );
+  const displayNodes = useMemo(
+    () =>
+      nodes.map((node) => ({
+        ...node,
+        selected: node.id === selectedNodeId,
+      })),
+    [nodes, selectedNodeId],
+  );
 
   useEffect(() => {
     setNodes(topology.nodes);
     setEdges(topology.edges);
   }, [setEdges, setNodes, topology]);
-
-  useEffect(() => {
-    setNodes((currentNodes) =>
-      currentNodes.map((node) => {
-        const selected = node.id === selectedNodeId;
-        return node.selected === selected ? node : { ...node, selected };
-      }),
-    );
-  }, [selectedNodeId, setNodes]);
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
@@ -92,11 +91,12 @@ function TopologyCanvasInner({
           colorMode="dark"
           defaultViewport={{ x: 80, y: 80, zoom: 0.75 }}
           edges={edges}
+          elementsSelectable={false}
           fitView
           fitViewOptions={{ padding: 0.18 }}
           maxZoom={1.5}
           minZoom={0.35}
-          nodes={nodes}
+          nodes={displayNodes}
           nodeTypes={nodeTypes}
           onEdgesChange={onEdgesChange}
           onNodesChange={onNodesChange}

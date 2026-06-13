@@ -10,7 +10,7 @@ import { TopologyCanvas } from "../components/TopologyCanvas";
 import type { ServiceTab } from "../components/manage/ServiceDrawer";
 import type { TopologyNodeData } from "../topology/types";
 
-const platformNodes: Record<string, TopologyNodeData> = {
+const platformNodes: Partial<Record<string, TopologyNodeData>> = {
   "platform-frontend": {
     title: "Platform frontend",
     subtitle: "TanStack Start",

@@ -41,22 +41,34 @@ export async function getSession(): Promise<Session> {
   return { authenticated: true, user: session.data.user.email }
 }
 
-export async function login(password: string): Promise<Session> {
-  const { protocol, hostname } = window.location
-  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
-  if (protocol !== 'https:' && !isLocalhost) {
-    throw new Error('Refusing to send credentials over an insecure connection; use HTTPS')
-  }
-  const response = await fetch('/api/platform-login', {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ password }),
+export async function login(email: string, password: string): Promise<Session> {
+  requireSecureConnection()
+  const result = await authClient.signIn.email({
+    email,
+    password,
   })
-  if (!response.ok) {
-    throw new Error('Invalid credentials')
+  if (result.error) {
+    throw new Error(result.error.message || 'Invalid credentials')
   }
-  return response.json() as Promise<Session>
+  return { authenticated: true, user: result.data.user.email }
+}
+
+export async function signup(input: { name: string; email: string; password: string; platformPassword: string }): Promise<Session> {
+  requireSecureConnection()
+  const result = await authClient.signUp.email({
+    name: input.name,
+    email: input.email,
+    password: input.password,
+    fetchOptions: {
+      headers: {
+        'x-platform-signup-password': input.platformPassword,
+      },
+    },
+  })
+  if (result.error) {
+    throw new Error(result.error.message || 'Unable to create account')
+  }
+  return { authenticated: true, user: result.data.user.email }
 }
 
 export async function logout(): Promise<void> {
@@ -118,4 +130,12 @@ async function authHeaders(): Promise<Record<string, string>> {
     return {}
   }
   return { Authorization: `Bearer ${token}` }
+}
+
+function requireSecureConnection(): void {
+  const { protocol, hostname } = window.location
+  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
+  if (protocol !== 'https:' && !isLocalhost) {
+    throw new Error('Refusing to send credentials over an insecure connection; use HTTPS')
+  }
 }

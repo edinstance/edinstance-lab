@@ -12,9 +12,6 @@ import { clientIp, type FailedAttempts, incrementFailure, isBlocked, resetFailur
 
 const baseURL = process.env.BETTER_AUTH_URL ?? 'http://localhost:3000'
 
-export const adminEmail = process.env.PLATFORM_ADMIN_EMAIL ?? 'admin@edinstance.local'
-export const adminName = process.env.PLATFORM_ADMIN_NAME ?? 'edinstance admin'
-
 const authDatabase = new Pool({
   host: requiredEnv('PLATFORM_DATABASE_HOST'),
   database: requiredEnv('PLATFORM_DATABASE_NAME'),
@@ -40,16 +37,6 @@ export function getAdminPassword() {
     throw new Error('PLATFORM_ADMIN_PASSWORD must be set')
   }
   return password
-}
-
-export async function updateAdminPassword(password: string) {
-  const context = await auth.$context
-  const result = await context.internalAdapter.findUserByEmail(adminEmail)
-  if (!result) {
-    throw new Error(`Admin user ${adminEmail} does not exist`)
-  }
-  const passwordHash = await context.password.hash(password)
-  await context.internalAdapter.updatePassword(result.user.id, passwordHash)
 }
 
 export const auth = betterAuth({

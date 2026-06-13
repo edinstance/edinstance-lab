@@ -37,7 +37,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
       <head>
         <HeadContent />
       </head>
-      <body>
+      <body className="min-h-screen bg-[#f4f1e8] bg-[linear-gradient(90deg,rgba(23,33,27,.04)_1px,transparent_1px),linear-gradient(rgba(23,33,27,.04)_1px,transparent_1px)] bg-[size:28px_28px] font-serif text-[#17211b]">
         {children}
         <Scripts />
       </body>

@@ -13,7 +13,6 @@ import { Route as ManageRouteImport } from './routes/manage'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as HealthRouteImport } from './routes/health'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ApiPlatformLoginRouteImport } from './routes/api/platform-login'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
 const ManageRoute = ManageRouteImport.update({
@@ -36,11 +35,6 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPlatformLoginRoute = ApiPlatformLoginRouteImport.update({
-  id: '/api/platform-login',
-  path: '/api/platform-login',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -52,7 +46,6 @@ export interface FileRoutesByFullPath {
   '/health': typeof HealthRoute
   '/login': typeof LoginRoute
   '/manage': typeof ManageRoute
-  '/api/platform-login': typeof ApiPlatformLoginRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
@@ -60,7 +53,6 @@ export interface FileRoutesByTo {
   '/health': typeof HealthRoute
   '/login': typeof LoginRoute
   '/manage': typeof ManageRoute
-  '/api/platform-login': typeof ApiPlatformLoginRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesById {
@@ -69,34 +61,14 @@ export interface FileRoutesById {
   '/health': typeof HealthRoute
   '/login': typeof LoginRoute
   '/manage': typeof ManageRoute
-  '/api/platform-login': typeof ApiPlatformLoginRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/health'
-    | '/login'
-    | '/manage'
-    | '/api/platform-login'
-    | '/api/auth/$'
+  fullPaths: '/' | '/health' | '/login' | '/manage' | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/health'
-    | '/login'
-    | '/manage'
-    | '/api/platform-login'
-    | '/api/auth/$'
-  id:
-    | '__root__'
-    | '/'
-    | '/health'
-    | '/login'
-    | '/manage'
-    | '/api/platform-login'
-    | '/api/auth/$'
+  to: '/' | '/health' | '/login' | '/manage' | '/api/auth/$'
+  id: '__root__' | '/' | '/health' | '/login' | '/manage' | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -104,7 +76,6 @@ export interface RootRouteChildren {
   HealthRoute: typeof HealthRoute
   LoginRoute: typeof LoginRoute
   ManageRoute: typeof ManageRoute
-  ApiPlatformLoginRoute: typeof ApiPlatformLoginRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
@@ -138,13 +109,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/platform-login': {
-      id: '/api/platform-login'
-      path: '/api/platform-login'
-      fullPath: '/api/platform-login'
-      preLoaderRoute: typeof ApiPlatformLoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -160,7 +124,6 @@ const rootRouteChildren: RootRouteChildren = {
   HealthRoute: HealthRoute,
   LoginRoute: LoginRoute,
   ManageRoute: ManageRoute,
-  ApiPlatformLoginRoute: ApiPlatformLoginRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport

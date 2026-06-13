@@ -30,6 +30,8 @@ const flows: Array<{ id: TopologyFlow | 'all'; label: string }> = [
   { id: 'dns', label: 'DNS' },
 ]
 
+const controlClass = 'min-h-[30px] border border-[#9c927f] bg-[#fffdf7e0] px-2.5 font-mono text-[.72rem] font-extrabold leading-none text-[#17211b] transition-colors hover:border-[#17211b] hover:bg-[#17211b] hover:text-[#fffdf7] disabled:cursor-not-allowed disabled:opacity-55'
+
 type TopologyCanvasProps = {
   apps?: PlatformApp[]
 }
@@ -84,8 +86,8 @@ function TopologyCanvasInner({ apps }: Required<TopologyCanvasProps>) {
   }
 
   return (
-    <main className="app-shell">
-      <section className="map-shell" aria-label="Interactive Kubernetes topology">
+    <main className="h-screen p-3 max-[1080px]:h-auto max-[1080px]:min-h-screen">
+      <section className="h-full min-h-0 overflow-hidden border border-[#17211b24] bg-[#fffdf7d1] max-[1080px]:h-[72vh] max-[1080px]:min-h-[560px]" aria-label="Interactive Kubernetes topology">
         <ReactFlow<TopologyNodeType, TopologyEdge>
           colorMode="light"
           defaultViewport={{ x: 60, y: 80, zoom: 0.7 }}
@@ -114,16 +116,16 @@ function TopologyCanvasInner({ apps }: Required<TopologyCanvasProps>) {
             zoomable
           />
           <Controls position="bottom-left" />
-          <Panel className="topology-header" position="top-left">
-            <div className="brand-block">
-              <p>edinstance platform</p>
-              <h1>Service graph</h1>
+          <Panel className="!flex max-w-[calc(100vw-72px)] !items-center gap-3 border border-[#c9c1af] !bg-[#fffdf7f0] p-2 max-[1080px]:!grid max-[1080px]:max-w-[calc(100vw-48px)]" position="top-left">
+            <div className="w-[210px] border-r border-[#c9c1af] py-1 pl-1.5 pr-3.5 max-[1080px]:w-auto">
+              <p className="mb-1.5 mt-0 font-mono text-[.68rem] font-black uppercase leading-none text-[#66736b]">edinstance platform</p>
+              <h1 className="m-0 text-[1.05rem] leading-none">Service graph</h1>
             </div>
-            <div className="header-tools">
-              <div className="flow-controls" role="toolbar" aria-label="Topology flow filters">
+            <div className="min-w-0">
+              <div className="flex flex-wrap gap-2" role="toolbar" aria-label="Topology flow filters">
                 {flows.map((flow) => (
                   <button
-                    className={activeFlow === flow.id ? 'active' : undefined}
+                    className={`${controlClass} ${activeFlow === flow.id ? 'border-[#17211b] bg-[#17211b] text-[#fffdf7]' : ''}`}
                     key={flow.id}
                     onClick={() => setActiveFlow(flow.id)}
                     type="button"
@@ -131,19 +133,19 @@ function TopologyCanvasInner({ apps }: Required<TopologyCanvasProps>) {
                     {flow.label}
                   </button>
                 ))}
-                <button className="reset-button" onClick={handleResetLayout} type="button">
+                <button className={`${controlClass} border-[#315c5273] text-[#315c52]`} onClick={handleResetLayout} type="button">
                   Reset
                 </button>
-                <Link className="graph-link" to="/manage">
+                <Link className={`${controlClass} inline-flex items-center no-underline`} to="/manage">
                   Manage
                 </Link>
               </div>
             </div>
           </Panel>
-          <Panel className="legend-panel" position="bottom-center">
-            <span><i className="legend-line legend-line--build" /> image build</span>
-            <span><i className="legend-line legend-line--runtime" /> running service</span>
-            <span><i className="legend-line legend-line--dns" /> DNS route</span>
+          <Panel className="!flex !flex-wrap !items-center gap-3 border border-[#c9c1af] !bg-[#fffdf7e0] px-2.5 py-2 font-mono text-[.7rem] font-extrabold leading-none" position="bottom-center">
+            <span className="inline-flex items-center gap-2"><i className="h-[3px] w-7 bg-[#b0822e]" /> image build</span>
+            <span className="inline-flex items-center gap-2"><i className="h-[3px] w-7 bg-[#517a38]" /> running service</span>
+            <span className="inline-flex items-center gap-2"><i className="h-[3px] w-7 bg-[repeating-linear-gradient(90deg,#2d6f8f,#2d6f8f_7px,transparent_7px,transparent_12px)]" /> DNS route</span>
           </Panel>
         </ReactFlow>
       </section>
@@ -200,7 +202,7 @@ function withEdgeState(edge: TopologyEdge, activeFlow: TopologyFlow | 'all'): To
   return {
     ...edge,
     animated: !muted && flow === activeFlow,
-    className: `flow-edge flow-edge--${flow}${muted ? ' is-muted' : ''}`,
+    className: `${muted ? 'is-muted ' : ''}${flow === 'dns' ? '[&>path]:stroke-[#2d6f8f] [&>path]:[stroke-dasharray:8_8]' : flow === 'runtime' ? '[&>path]:stroke-[#517a38]' : '[&>path]:stroke-[#b0822e]'} [&>path]:stroke-[2.2]`,
   }
 }
 

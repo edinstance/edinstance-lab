@@ -122,7 +122,7 @@ data:
       "links": [
         {"title":"Platform API logs","type":"link","url":"/explore?schemaVersion=1&panes=%7B%22api%22:%7B%22datasource%22:%22loki%22,%22queries%22:%5B%7B%22refId%22:%22A%22,%22expr%22:%22%7Bnamespace%3D%5C%22platform-system%5C%22,app%3D%5C%22platform-api%5C%22%7D%22%7D%5D%7D%7D","keepTime":true},
         {"title":"Platform API traces","type":"link","url":"/explore?schemaVersion=1&panes=%7B%22api%22:%7B%22datasource%22:%22tempo%22,%22queries%22:%5B%7B%22refId%22:%22A%22,%22queryType%22:%22traceql%22,%22query%22:%22%7B%20resource.service.name%20%3D%20%5C%22platform-api%5C%22%20%7D%22%7D%5D%7D%7D","keepTime":true},
-        {"title":"Managed applications","type":"dashboards","dashboardUid":"platform-applications","keepTime":true}
+        {"title":"Managed applications","type":"link","url":"/d/platform-applications/platform-applications","keepTime":true}
       ],
       "panels": [
         {"type":"stat","title":"Available replicas","id":1,"gridPos":{"h":4,"w":4,"x":0,"y":0},"targets":[{"expr":"kube_deployment_status_replicas_available{namespace=\"platform-system\",deployment=\"platform-api\"}","refId":"A"}],"fieldConfig":{"defaults":{"thresholds":{"mode":"absolute","steps":[{"color":"red","value":null},{"color":"orange","value":1},{"color":"green","value":2}]}}}},
@@ -136,7 +136,8 @@ data:
         {"type":"timeseries","title":"API CPU","id":9,"gridPos":{"h":8,"w":12,"x":0,"y":12},"targets":[{"expr":"sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"platform-system\",container=\"platform-api\"}[5m]))","legendFormat":"{{pod}}","refId":"A"}],"fieldConfig":{"defaults":{"unit":"cores"}}},
         {"type":"timeseries","title":"API memory","id":10,"gridPos":{"h":8,"w":12,"x":12,"y":12},"targets":[{"expr":"sum by (pod) (container_memory_working_set_bytes{namespace=\"platform-system\",container=\"platform-api\"})","legendFormat":"{{pod}}","refId":"A"}],"fieldConfig":{"defaults":{"unit":"bytes"}}},
         {"type":"timeseries","title":"Replica availability","id":11,"gridPos":{"h":8,"w":12,"x":0,"y":20},"targets":[{"expr":"kube_deployment_status_replicas_available{namespace=\"platform-system\",deployment=\"platform-api\"}","legendFormat":"available","refId":"A"},{"expr":"kube_deployment_spec_replicas{namespace=\"platform-system\",deployment=\"platform-api\"}","legendFormat":"desired","refId":"B"}]},
-        {"type":"timeseries","title":"Container restarts","id":12,"gridPos":{"h":8,"w":12,"x":12,"y":20},"targets":[{"expr":"sum by (pod) (increase(kube_pod_container_status_restarts_total{namespace=\"platform-system\",container=\"platform-api\"}[15m]))","legendFormat":"{{pod}}","refId":"A"}]}
+        {"type":"timeseries","title":"Container restarts","id":12,"gridPos":{"h":8,"w":12,"x":12,"y":20},"targets":[{"expr":"sum by (pod) (increase(kube_pod_container_status_restarts_total{namespace=\"platform-system\",container=\"platform-api\"}[15m]))","legendFormat":"{{pod}}","refId":"A"}]},
+        {"type":"logs","title":"Platform API logs","id":13,"gridPos":{"h":12,"w":24,"x":0,"y":28},"datasource":{"type":"loki","uid":"loki"},"options":{"showTime":true,"wrapLogMessage":true,"enableLogDetails":true,"sortOrder":"Descending"},"targets":[{"expr":"{namespace=\"platform-system\",app=\"platform-api\"}","refId":"A"}]}
       ],
       "refresh": "30s",
       "schemaVersion": 39,

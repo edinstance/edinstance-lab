@@ -11,7 +11,7 @@ export function TopologyNode({
   const online = data.status === "ready" || data.status === "active";
   return (
     <article
-      className={`relative flex h-[190px] w-[300px] flex-col overflow-hidden rounded-2xl border bg-[#17141f] shadow-[0_18px_45px_rgba(0,0,0,.28)] transition duration-200 ${selected ? "border-[#a855f7] shadow-[0_0_0_1px_#a855f7,0_20px_55px_rgba(88,28,135,.28)]" : "border-[#3a3445] hover:-translate-y-0.5 hover:border-[#5d526c]"}`}
+      className={`relative flex h-[190px] w-[360px] cursor-pointer flex-col overflow-hidden rounded-2xl border bg-[#17141f] shadow-[0_18px_45px_rgba(0,0,0,.28)] transition duration-200 ${selected ? "border-[#a855f7] shadow-[0_0_0_1px_#a855f7,0_20px_55px_rgba(88,28,135,.28)]" : "border-[#3a3445] hover:-translate-y-0.5 hover:border-[#5d526c]"}`}
     >
       {data.targetPosition ? (
         <Handle

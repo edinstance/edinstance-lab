@@ -56,7 +56,7 @@ function TopologyCanvasInner({
   Pick<Props, "onSelect" | "onAdd">) {
   const topology = useMemo(() => createServiceTopology(apps), [apps]);
   const { fitView } = useReactFlow<TopologyNodeType, TopologyEdge>();
-  
+
   const [nodes, setNodes, onNodesChange] = useNodesState<TopologyNodeType>(
     topology.nodes,
   );

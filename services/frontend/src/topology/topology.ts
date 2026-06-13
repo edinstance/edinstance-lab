@@ -35,7 +35,7 @@ export function createServiceTopology(apps: Array<PlatformApp>): {
   const serviceNodes = apps.map<TopologyNode>((app, index) => ({
     id: app.name,
     type: "topologyNode",
-    position: { x: 1080, y: 140 + index * 180 },
+    position: { x: 1320, y: 140 + index * 220 },
     data: {
       title: app.name,
       subtitle: `${app.replicas} ${app.replicas === 1 ? "replica" : "replicas"}`,
@@ -58,7 +58,7 @@ export function createServiceTopology(apps: Array<PlatformApp>): {
     {
       id: "platform-frontend",
       type: "topologyNode",
-      position: { x: 360, y: 400 },
+      position: { x: 240, y: 400 },
       data: {
         title: "Platform frontend",
         subtitle: "TanStack Start",
@@ -89,7 +89,7 @@ export function createServiceTopology(apps: Array<PlatformApp>): {
     {
       id: "platform-db",
       type: "topologyNode",
-      position: { x: 1080, y: 400 },
+      position: { x: 1200, y: 400 },
       data: {
         title: "Platform PostgreSQL",
         subtitle: "3 instances + PgBouncer",

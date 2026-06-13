@@ -2,6 +2,9 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useState, type SubmitEvent } from 'react'
 
 import { login, signup } from '../platform/api'
+import { Button } from '../components/ui/Button'
+import { Field } from '../components/ui/Field'
+import { Input } from '../components/ui/Input'
 
 export const Route = createFileRoute('/login')({
   component: LoginPage,
@@ -9,7 +12,6 @@ export const Route = createFileRoute('/login')({
 
 type Mode = 'login' | 'signup'
 
-const fieldClass = 'grid gap-2 [&>span]:font-mono [&>span]:text-[.72rem] [&>span]:font-black [&>span]:uppercase [&>span]:leading-none [&>input]:min-h-[42px] [&>input]:border [&>input]:border-[#9c927f] [&>input]:bg-[#fffdf7] [&>input]:px-3 [&>input]:font-mono [&>input]:text-base [&>input]:font-black [&>input]:text-[#17211b]'
 const tabClass = 'min-h-10 border border-[#9c927f] bg-transparent font-mono text-[.72rem] font-black uppercase leading-none text-[#66736b] disabled:cursor-not-allowed disabled:opacity-55'
 
 function LoginPage() {
@@ -61,29 +63,17 @@ function LoginPage() {
           </button>
         </div>
         {mode === 'signup' ? (
-          <label className={fieldClass}>
-            <span>Name</span>
-            <input autoComplete="name" autoFocus required value={name} onChange={(event) => setName(event.target.value)} />
-          </label>
+          <Field label="Name"><Input autoComplete="name" autoFocus required value={name} onChange={(event) => setName(event.target.value)} /></Field>
         ) : null}
-        <label className={fieldClass}>
-          <span>Email</span>
-          <input autoComplete="email" autoFocus={mode === 'login'} required type="email" value={email} onChange={(event) => setEmail(event.target.value)} />
-        </label>
-        <label className={fieldClass}>
-          <span>Account password</span>
-          <input autoComplete={mode === 'login' ? 'current-password' : 'new-password'} minLength={12} required type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
-        </label>
+        <Field label="Email"><Input autoComplete="email" autoFocus={mode === 'login'} required type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></Field>
+        <Field label="Account password"><Input autoComplete={mode === 'login' ? 'current-password' : 'new-password'} minLength={12} required type="password" value={password} onChange={(event) => setPassword(event.target.value)} /></Field>
         {mode === 'signup' ? (
-          <label className={fieldClass}>
-            <span>Platform password</span>
-            <input autoComplete="off" required type="password" value={platformPassword} onChange={(event) => setPlatformPassword(event.target.value)} />
-          </label>
+          <Field label="Platform password"><Input autoComplete="off" required type="password" value={platformPassword} onChange={(event) => setPlatformPassword(event.target.value)} /></Field>
         ) : null}
         {error ? <p className="m-0 text-[#d65236]">{error}</p> : null}
-        <button className="min-h-[42px] border border-[#17211b] bg-[#17211b] px-3 font-mono text-[.72rem] font-black uppercase text-[#fffdf7] transition-colors hover:bg-[#315c52] disabled:cursor-not-allowed disabled:opacity-55" disabled={submitting} type="submit">
+        <Button disabled={submitting} type="submit">
           {submitting ? 'Checking...' : mode === 'login' ? 'Sign in' : 'Create account'}
-        </button>
+        </Button>
       </form>
     </main>
   )

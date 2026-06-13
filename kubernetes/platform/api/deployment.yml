@@ -27,7 +27,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: platform-api
-          image: ghcr.io/edinstance/edinstance-lab/platform-api:sha-0f2be9e
+          image: ghcr.io/edinstance/edinstance-lab/platform-api:sha-f5016c4
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

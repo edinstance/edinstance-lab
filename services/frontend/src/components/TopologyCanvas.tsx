@@ -91,7 +91,6 @@ function TopologyCanvasInner({
           colorMode="dark"
           defaultViewport={{ x: 80, y: 80, zoom: 0.75 }}
           edges={edges}
-          elementsSelectable={false}
           fitView
           fitViewOptions={{ padding: 0.18 }}
           maxZoom={1.5}

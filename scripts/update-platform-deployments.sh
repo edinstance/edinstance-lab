@@ -24,6 +24,17 @@ update_image() {
 update_image frontend kubernetes/platform/frontend/deployment.yml
 update_image platform-api kubernetes/platform/api/deployment.yml
 
+perl -0pi -e "s#(name: OTEL_SERVICE_VERSION\n\s+value:) sha-[0-9a-f]{7,40}#\$1 sha-${sha}#g" \
+  kubernetes/platform/frontend/deployment.yml \
+  kubernetes/platform/api/deployment.yml
+
+for file in kubernetes/platform/frontend/deployment.yml kubernetes/platform/api/deployment.yml; do
+  if ! grep -A1 -F "name: OTEL_SERVICE_VERSION" "$file" | grep -Fq "value: sha-${sha}"; then
+    echo "Failed to update OTEL_SERVICE_VERSION in ${file} to sha-${sha}" >&2
+    exit 1
+  fi
+done
+
 git diff -- \
   kubernetes/platform/frontend/deployment.yml \
   kubernetes/platform/api/deployment.yml

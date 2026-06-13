@@ -9,7 +9,7 @@ func TestIsAllowedOrigin(t *testing.T) {
 		"http://localhost:3000":                true,
 		"http://127.0.0.1:3000":                true,
 		"https://ui.edinstance.uk":             true,
-		"https://platform.local.edinstance.uk": true,
+		"https://ui.local.edinstance.uk":       true,
 		"https://other.edinstance.uk":          false,
 		"https://ui.edinstance.uk.evil.test":   false,
 		"javascript:alert(1)":                  false,

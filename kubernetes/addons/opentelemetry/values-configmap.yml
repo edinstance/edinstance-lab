@@ -5,6 +5,8 @@ metadata:
   namespace: flux-system
 data:
   values.yml: |
+    fullnameOverride: opentelemetry-collector
+
     mode: deployment
     replicaCount: 1
 

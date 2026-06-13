@@ -37,5 +37,5 @@ func isAllowedOrigin(origin string) bool {
 	return host == "localhost" ||
 		host == "127.0.0.1" ||
 		host == "ui.edinstance.uk" ||
-		host == "platform.local.edinstance.uk"
+		host == "ui.local.edinstance.uk"
 }

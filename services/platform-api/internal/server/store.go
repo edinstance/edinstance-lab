@@ -55,8 +55,8 @@ func (s *Server) insertApp(req CreateAppRequest) (App, error) {
 	serviceID := uuid.NewString()
 	var updatedAt time.Time
 	if err := tx.QueryRow(`
-		insert into services (id, name, image, port, replicas, status, reconcile_state)
-		values ($1::uuid, $2, $3, $4, $5, 'pending', 'pending')
+		insert into services (id, name, image, port, replicas, status, reconcile_state, next_reconcile_at)
+		values ($1::uuid, $2, $3, $4, $5, 'pending', 'pending', now())
 		returning updated_at
 	`, serviceID, req.Name, req.Image, req.Port, req.Replicas).Scan(&updatedAt); err != nil {
 		return App{}, fmt.Errorf("insert service: %w", err)

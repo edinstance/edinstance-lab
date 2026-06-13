@@ -33,6 +33,20 @@ type AppSpec struct {
 	Env      map[string]string
 }
 
+type PostgresSpec struct {
+	Name            string
+	Namespace       string
+	Database        string
+	Owner           string
+	Password        string
+	Version         string
+	Instances       int
+	StorageSize     string
+	PoolerEnabled   bool
+	PoolerInstances int
+	PoolMode        string
+}
+
 func New(ctx context.Context, cfg config.Config, db *platformdb.DB, cipher *platformsecrets.Cipher) (*Reconciler, error) {
 	if db == nil {
 		return nil, fmt.Errorf("database is required")
@@ -77,6 +91,23 @@ func (r *Reconciler) ReconcileApp(ctx context.Context, name string) error {
 		resources = append(resources, r.httpRoute(spec))
 	}
 
+	for _, resource := range resources {
+		if err := r.apply(ctx, resource); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *Reconciler) ReconcilePostgres(ctx context.Context, spec PostgresSpec) error {
+	resources := []*unstructured.Unstructured{
+		r.postgresSecret(spec),
+		r.postgresCluster(spec),
+		r.postgresDatabase(spec),
+	}
+	if spec.PoolerEnabled {
+		resources = append(resources, r.postgresPooler(spec))
+	}
 	for _, resource := range resources {
 		if err := r.apply(ctx, resource); err != nil {
 			return err

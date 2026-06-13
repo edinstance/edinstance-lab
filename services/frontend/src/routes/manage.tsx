@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { type ChangeEvent, type FormEvent, useEffect, useState } from 'react'
 
-import { createApp, deleteApp, getSession, listApps, uploadEnvFile } from '../platform/api'
+import { createApp, createDatabase, deleteApp, getSession, listApps, listDatabases, uploadEnvFile, type PostgresDatabase } from '../platform/api'
 import type { PlatformApp } from '../topology/topology'
 
 const fieldClass = 'grid gap-2 [&>span]:font-mono [&>span]:text-[.72rem] [&>span]:font-black [&>span]:uppercase [&>span]:leading-none [&>input]:min-h-[42px] [&>input]:border [&>input]:border-[#9c927f] [&>input]:bg-[#fffdf7] [&>input]:px-3 [&>input]:font-mono [&>input]:text-base [&>input]:font-black [&>input]:text-[#17211b]'
@@ -27,6 +27,11 @@ function ManagePage() {
   const [saving, setSaving] = useState(false)
   const [busyApp, setBusyApp] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [databases, setDatabases] = useState<PostgresDatabase[]>([])
+  const [databaseForm, setDatabaseForm] = useState({
+    name: '', database: 'app', owner: 'app', password: '', version: '17', instances: '3',
+    storageSize: '20Gi', poolerEnabled: true, poolerInstances: '2', poolMode: 'session' as 'session' | 'transaction',
+  })
 
   async function refreshApps() {
     const nextApps = await listApps()
@@ -43,9 +48,10 @@ function ManagePage() {
           await navigate({ to: '/login' })
           return
         }
-        const nextApps = await listApps()
+        const [nextApps, nextDatabases] = await Promise.all([listApps(), listDatabases()])
         if (!cancelled) {
           setApps(nextApps)
+          setDatabases(nextDatabases)
         }
       } catch (err) {
         if (!cancelled) {
@@ -67,6 +73,28 @@ function ManagePage() {
 
   function updateForm(event: ChangeEvent<HTMLInputElement>) {
     setForm((current) => ({ ...current, [event.target.name]: event.target.value }))
+  }
+
+  async function handleCreateDatabase(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setSaving(true)
+    setError(null)
+    try {
+      const database = await createDatabase({
+        name: databaseForm.name.trim(), database: databaseForm.database.trim(), owner: databaseForm.owner.trim(),
+        password: databaseForm.password, version: databaseForm.version,
+        instances: Number(databaseForm.instances), storageSize: databaseForm.storageSize.trim(),
+        poolerEnabled: databaseForm.poolerEnabled, poolerInstances: Number(databaseForm.poolerInstances),
+        poolMode: databaseForm.poolMode,
+      })
+      setDatabases((current) => [...current, database])
+      setDatabaseForm((current) => ({ ...current, name: '', password: '' }))
+      setNotice(`${database.name} PostgreSQL cluster requested`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to create database')
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function handleCreateApp(event: FormEvent<HTMLFormElement>) {
@@ -205,6 +233,27 @@ function ManagePage() {
           </button>
         </form>
         {notice ? <p className="m-0 border-t border-[#c9c1afbf] px-4 py-[18px] font-mono text-[.82rem] font-extrabold leading-[1.4] text-[#517a38]">{notice}</p> : null}
+      </section>
+
+      <section className="mx-auto mb-[18px] max-w-[1180px] border border-[#c9c1af] bg-[#fffdf7e6]" aria-label="Create PostgreSQL database">
+        <div className="border-b border-[#c9c1af] px-4 py-3">
+          <p className="m-0 font-mono text-[.68rem] font-black uppercase text-[#66736b]">CloudNativePG</p>
+          <h2 className="m-0 text-2xl">PostgreSQL cluster</h2>
+        </div>
+        <form className="grid grid-cols-4 gap-3.5 p-4 max-[860px]:grid-cols-1" onSubmit={handleCreateDatabase}>
+          <label className={fieldClass}><span>Name / DNS prefix</span><input required pattern="[a-z0-9]([-a-z0-9]*[a-z0-9])?" value={databaseForm.name} onChange={(e) => setDatabaseForm({ ...databaseForm, name: e.target.value })} /></label>
+          <label className={fieldClass}><span>Database</span><input required value={databaseForm.database} onChange={(e) => setDatabaseForm({ ...databaseForm, database: e.target.value })} /></label>
+          <label className={fieldClass}><span>Owner</span><input required value={databaseForm.owner} onChange={(e) => setDatabaseForm({ ...databaseForm, owner: e.target.value })} /></label>
+          <label className={fieldClass}><span>Password</span><input required minLength={12} type="password" value={databaseForm.password} onChange={(e) => setDatabaseForm({ ...databaseForm, password: e.target.value })} /></label>
+          <label className={fieldClass}><span>PostgreSQL version</span><select className="min-h-[42px] border border-[#9c927f] bg-[#fffdf7] px-3 font-mono font-black" value={databaseForm.version} onChange={(e) => setDatabaseForm({ ...databaseForm, version: e.target.value })}><option>17</option><option>16</option></select></label>
+          <label className={fieldClass}><span>Instances</span><input min="1" max="5" type="number" value={databaseForm.instances} onChange={(e) => setDatabaseForm({ ...databaseForm, instances: e.target.value })} /></label>
+          <label className={fieldClass}><span>Storage</span><input value={databaseForm.storageSize} onChange={(e) => setDatabaseForm({ ...databaseForm, storageSize: e.target.value })} /></label>
+          <label className={fieldClass}><span>Pool mode</span><select className="min-h-[42px] border border-[#9c927f] bg-[#fffdf7] px-3 font-mono font-black" disabled={!databaseForm.poolerEnabled} value={databaseForm.poolMode} onChange={(e) => setDatabaseForm({ ...databaseForm, poolMode: e.target.value as 'session' | 'transaction' })}><option value="session">session</option><option value="transaction">transaction</option></select></label>
+          <label className="flex items-center gap-2 font-mono text-sm font-black"><input type="checkbox" checked={databaseForm.poolerEnabled} onChange={(e) => setDatabaseForm({ ...databaseForm, poolerEnabled: e.target.checked })} /> Enable PgBouncer</label>
+          <label className={fieldClass}><span>Pooler replicas</span><input min="1" max="5" type="number" disabled={!databaseForm.poolerEnabled} value={databaseForm.poolerInstances} onChange={(e) => setDatabaseForm({ ...databaseForm, poolerInstances: e.target.value })} /></label>
+          <button className={`${buttonClass} min-h-[42px] self-end`} disabled={saving} type="submit">Create database</button>
+        </form>
+        {databases.length > 0 ? <div className="border-t border-[#c9c1af] p-4">{databases.map((database) => <article className="mb-3 grid gap-1 font-mono text-sm last:mb-0" key={database.name}><strong>{database.name} · PostgreSQL {database.version} · {database.status}</strong><code className="text-[#2d6f8f]">{database.host}:5432/{database.database}</code><span>Credentials Secret: {database.credentialsSecret} · {database.instances} DB replicas{database.poolerEnabled ? ` · ${database.poolerInstances} PgBouncer (${database.poolMode})` : ''}</span></article>)}</div> : null}
       </section>
 
       <section className="mx-auto max-w-[1180px] overflow-hidden border border-[#c9c1af] bg-[#fffdf7e6]" aria-label="Managed platform services">

@@ -22,7 +22,26 @@ export type EnvUploadResult = {
   }>
 }
 
+export type PostgresDatabase = {
+  name: string
+  namespace: string
+  database: string
+  owner: string
+  version: string
+  instances: number
+  storageSize: string
+  poolerEnabled: boolean
+  poolerInstances: number
+  poolMode: 'session' | 'transaction'
+  host: string
+  credentialsSecret: string
+  status: string
+}
+
+export type CreatePostgresInput = Omit<PostgresDatabase, 'namespace' | 'host' | 'credentialsSecret' | 'status'> & { password: string }
+
 const apiBase = env.platformApiUrl
+const requestTimeoutMs = 10_000
 
 async function readError(response: Response, fallback: string): Promise<string> {
   try {
@@ -76,12 +95,10 @@ export async function logout(): Promise<void> {
 }
 
 export async function listApps(): Promise<PlatformApp[]> {
-  const response = await fetch(`${apiBase}/api/apps`, {
+  const response = await apiFetch(`${apiBase}/api/apps`, {
     headers: await authHeaders(),
   })
-  if (response.status === 401) {
-    return []
-  }
+  if (response.status === 401) throw new Error('Your session has expired; sign in again')
   if (!response.ok) {
     throw new Error('Unable to load platform apps')
   }
@@ -90,7 +107,7 @@ export async function listApps(): Promise<PlatformApp[]> {
 }
 
 export async function createApp(input: CreateAppInput): Promise<PlatformApp> {
-  const response = await fetch(`${apiBase}/api/apps`, {
+  const response = await apiFetch(`${apiBase}/api/apps`, {
     method: 'POST',
     headers: { ...(await authHeaders()), 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
@@ -102,7 +119,7 @@ export async function createApp(input: CreateAppInput): Promise<PlatformApp> {
 }
 
 export async function deleteApp(name: string): Promise<void> {
-  const response = await fetch(`${apiBase}/api/apps/${encodeURIComponent(name)}`, {
+  const response = await apiFetch(`${apiBase}/api/apps/${encodeURIComponent(name)}`, {
     method: 'DELETE',
     headers: await authHeaders(),
   })
@@ -112,7 +129,7 @@ export async function deleteApp(name: string): Promise<void> {
 }
 
 export async function uploadEnvFile(name: string, content: string): Promise<EnvUploadResult> {
-  const response = await fetch(`${apiBase}/api/apps/${encodeURIComponent(name)}/env-file`, {
+  const response = await apiFetch(`${apiBase}/api/apps/${encodeURIComponent(name)}/env-file`, {
     method: 'POST',
     headers: { ...(await authHeaders()), 'Content-Type': 'application/json' },
     body: JSON.stringify({ content }),
@@ -121,6 +138,22 @@ export async function uploadEnvFile(name: string, content: string): Promise<EnvU
     throw new Error(await readError(response, 'Unable to upload env file'))
   }
   return response.json() as Promise<EnvUploadResult>
+}
+
+export async function listDatabases(): Promise<PostgresDatabase[]> {
+  const response = await apiFetch(`${apiBase}/api/databases`, { headers: await authHeaders() })
+  if (!response.ok) throw new Error(await readError(response, 'Unable to load databases'))
+  return ((await response.json()) as { databases: PostgresDatabase[] }).databases
+}
+
+export async function createDatabase(input: CreatePostgresInput): Promise<PostgresDatabase> {
+  const response = await apiFetch(`${apiBase}/api/databases`, {
+    method: 'POST',
+    headers: { ...(await authHeaders()), 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (!response.ok) throw new Error(await readError(response, 'Unable to create database'))
+  return response.json() as Promise<PostgresDatabase>
 }
 
 async function authHeaders(): Promise<Record<string, string>> {
@@ -137,5 +170,20 @@ function requireSecureConnection(): void {
   const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
   if (protocol !== 'https:' && !isLocalhost) {
     throw new Error('Refusing to send credentials over an insecure connection; use HTTPS')
+  }
+}
+
+async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), requestTimeoutMs)
+  try {
+    return await fetch(input, { ...init, signal: controller.signal })
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('Platform API request timed out')
+    }
+    throw new Error('Unable to reach the platform API')
+  } finally {
+    window.clearTimeout(timeout)
   }
 }

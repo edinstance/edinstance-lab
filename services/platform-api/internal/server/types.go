@@ -31,3 +31,32 @@ type CreateAppRequest struct {
 	Replicas int      `json:"replicas,omitempty"`
 	Domains  []string `json:"domains,omitempty"`
 }
+
+type PostgresDatabase struct {
+	Name              string `json:"name"`
+	Namespace         string `json:"namespace"`
+	Database          string `json:"database"`
+	Owner             string `json:"owner"`
+	Version           string `json:"version"`
+	Instances         int    `json:"instances"`
+	StorageSize       string `json:"storageSize"`
+	PoolerEnabled     bool   `json:"poolerEnabled"`
+	PoolerInstances   int    `json:"poolerInstances"`
+	PoolMode          string `json:"poolMode"`
+	Host              string `json:"host"`
+	CredentialsSecret string `json:"credentialsSecret"`
+	Status            string `json:"status"`
+}
+
+type CreatePostgresRequest struct {
+	Name            string `json:"name"`
+	Database        string `json:"database"`
+	Owner           string `json:"owner"`
+	Password        string `json:"password"`
+	Version         string `json:"version"`
+	Instances       int    `json:"instances"`
+	StorageSize     string `json:"storageSize"`
+	PoolerEnabled   bool   `json:"poolerEnabled"`
+	PoolerInstances int    `json:"poolerInstances"`
+	PoolMode        string `json:"poolMode"`
+}

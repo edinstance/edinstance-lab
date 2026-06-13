@@ -35,7 +35,7 @@ export function createServiceTopology(apps: PlatformApp[]): {
   const serviceNodes = apps.map<TopologyNode>((app, index) => ({
     id: app.name,
     type: 'topologyNode',
-    position: { x: 720, y: 140 + index * 180 },
+    position: { x: 1080, y: 140 + index * 180 },
     data: {
       title: app.name,
       subtitle: `${app.replicas} replicas :${app.port}`,
@@ -93,9 +93,55 @@ export function createServiceTopology(apps: PlatformApp[]): {
     },
     ...serviceNodes,
     {
+      id: 'platform-frontend',
+      type: 'topologyNode',
+      position: { x: 360, y: 400 },
+      data: {
+        title: 'Platform frontend',
+        subtitle: 'TanStack Start :3000',
+        details: 'The authenticated management UI and service graph.',
+        category: 'system',
+        status: 'active',
+        sourcePosition: Position.Right,
+        facts: { public: 'ui.edinstance.uk', local: 'ui.local.edinstance.uk' },
+        sources: ['services/frontend'],
+      },
+    },
+    {
+      id: 'platform-api',
+      type: 'topologyNode',
+      position: { x: 720, y: 400 },
+      data: {
+        title: 'Platform API',
+        subtitle: 'Go control plane :8080',
+        details: 'Stores desired state and reconciles managed workloads.',
+        category: 'system',
+        status: 'active',
+        sourcePosition: Position.Right,
+        targetPosition: Position.Left,
+        facts: { public: 'api.edinstance.uk', namespace: 'platform-system' },
+        sources: ['services/platform-api'],
+      },
+    },
+    {
+      id: 'platform-db',
+      type: 'topologyNode',
+      position: { x: 1080, y: 400 },
+      data: {
+        title: 'Platform PostgreSQL',
+        subtitle: '3 instances + PgBouncer',
+        details: 'CloudNativePG database backing platform state and authentication.',
+        category: 'system',
+        status: 'active',
+        targetPosition: Position.Left,
+        facts: { version: '17', storage: '20Gi Longhorn' },
+        sources: ['kubernetes/platform/database'],
+      },
+    },
+    {
       id: 'gateway',
       type: 'topologyNode',
-      position: { x: 1080, y: 140 },
+      position: { x: 1440, y: 140 },
       data: {
         title: 'Gateway routes',
         subtitle: 'HTTPRoute + tunnel targets',
@@ -114,7 +160,7 @@ export function createServiceTopology(apps: PlatformApp[]): {
     {
       id: 'dns',
       type: 'topologyNode',
-      position: { x: 1440, y: 140 },
+      position: { x: 1800, y: 140 },
       data: {
         title: 'DNS',
         subtitle: 'local + public names',
@@ -146,6 +192,27 @@ export function createServiceTopology(apps: PlatformApp[]): {
       target: app.name,
       data: { flow: 'runtime', label: 'deploy image' },
     })),
+    {
+      ...edgeDefaults,
+      id: 'platform-frontend-api',
+      source: 'platform-frontend',
+      target: 'platform-api',
+      data: { flow: 'runtime', label: 'control requests' },
+    },
+    {
+      ...edgeDefaults,
+      id: 'platform-api-db',
+      source: 'platform-api',
+      target: 'platform-db',
+      data: { flow: 'runtime', label: 'platform state' },
+    },
+    {
+      ...edgeDefaults,
+      id: 'platform-frontend-gateway',
+      source: 'platform-frontend',
+      target: 'gateway',
+      data: { flow: 'runtime', label: 'UI route' },
+    },
     ...apps.map<TopologyEdge>((app) => ({
       ...edgeDefaults,
       id: `${app.name}-gateway`,

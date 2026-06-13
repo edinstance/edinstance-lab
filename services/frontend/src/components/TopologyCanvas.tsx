@@ -125,7 +125,7 @@ function TopologyCanvasInner({ apps }: Required<TopologyCanvasProps>) {
               <div className="flex flex-wrap gap-2" role="toolbar" aria-label="Topology flow filters">
                 {flows.map((flow) => (
                   <button
-                    className={`${controlClass} ${activeFlow === flow.id ? 'border-[#17211b] bg-[#17211b] text-[#fffdf7]' : ''}`}
+                    className={`${controlClass} ${activeFlow === flow.id ? '!border-[#17211b] !bg-[#17211b] !text-[#fffdf7]' : ''}`}
                     key={flow.id}
                     onClick={() => setActiveFlow(flow.id)}
                     type="button"

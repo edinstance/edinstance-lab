@@ -53,10 +53,10 @@ function LoginPage() {
           <h1 className="m-0 text-[1.8rem] leading-none">{mode === 'login' ? 'Sign in' : 'Create account'}</h1>
         </div>
         <div className="grid grid-cols-2" role="tablist" aria-label="Authentication mode">
-          <button aria-selected={mode === 'login'} className={`${tabClass} ${mode === 'login' ? 'bg-[#17211b] text-[#fffdf7]' : ''}`} role="tab" type="button" onClick={() => selectMode('login')}>
+          <button aria-selected={mode === 'login'} className={`${tabClass} ${mode === 'login' ? '!bg-[#17211b] !text-[#fffdf7]' : ''}`} role="tab" type="button" onClick={() => selectMode('login')}>
             Sign in
           </button>
-          <button aria-selected={mode === 'signup'} className={`${tabClass} -ml-px ${mode === 'signup' ? 'bg-[#17211b] text-[#fffdf7]' : ''}`} role="tab" type="button" onClick={() => selectMode('signup')}>
+          <button aria-selected={mode === 'signup'} className={`${tabClass} -ml-px ${mode === 'signup' ? '!bg-[#17211b] !text-[#fffdf7]' : ''}`} role="tab" type="button" onClick={() => selectMode('signup')}>
             Sign up
           </button>
         </div>

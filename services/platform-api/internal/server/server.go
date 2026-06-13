@@ -50,6 +50,8 @@ func New(cfg config.Config, logger *slog.Logger, db *platformdb.DB, secretCipher
 	mux.HandleFunc("GET /api/apps/{name}", s.withAuth(s.getApp))
 	mux.HandleFunc("DELETE /api/apps/{name}", s.withAuth(s.deleteApp))
 	mux.HandleFunc("POST /api/apps/{name}/env-file", s.withAuth(s.uploadEnvFile))
+	mux.HandleFunc("GET /api/databases", s.withAuth(s.listPostgresDatabases))
+	mux.HandleFunc("POST /api/databases", s.withAuth(s.createPostgresDatabase))
 
 	return s.withCORS(otelhttp.NewHandler(mux, cfg.ServiceName))
 }
@@ -60,9 +62,6 @@ func (s *Server) health(w http.ResponseWriter, _ *http.Request) {
 
 func (s *Server) listApps(w http.ResponseWriter, r *http.Request) {
 	if s.db != nil {
-		if err := s.refreshAllStatusesIfEnabled(r.Context()); err != nil {
-			s.logger.Warn("failed to refresh app statuses", "error", err)
-		}
 		apps, err := s.listAppsFromDB()
 		if err != nil {
 			s.logger.Error("failed to list apps from database", "error", err)

@@ -84,6 +84,12 @@ func gvrFor(obj *unstructured.Unstructured) (schema.GroupVersionResource, error)
 		return schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "networkpolicies"}, nil
 	case "HTTPRoute":
 		return schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1", Resource: "httproutes"}, nil
+	case "Cluster":
+		return schema.GroupVersionResource{Group: "postgresql.cnpg.io", Version: "v1", Resource: "clusters"}, nil
+	case "Database":
+		return schema.GroupVersionResource{Group: "postgresql.cnpg.io", Version: "v1", Resource: "databases"}, nil
+	case "Pooler":
+		return schema.GroupVersionResource{Group: "postgresql.cnpg.io", Version: "v1", Resource: "poolers"}, nil
 	default:
 		return schema.GroupVersionResource{}, fmt.Errorf("unsupported Kubernetes kind %q", obj.GetKind())
 	}

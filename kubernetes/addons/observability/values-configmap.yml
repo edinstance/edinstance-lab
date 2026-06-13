@@ -8,6 +8,8 @@ data:
     fullnameOverride: kube-prometheus-stack
 
     prometheusOperator:
+      kubeletEndpointsEnabled: false
+      kubeletEndpointSliceEnabled: true
       tls:
         enabled: false
       admissionWebhooks:
@@ -55,6 +57,7 @@ data:
 
     prometheus:
       prometheusSpec:
+        serviceDiscoveryRole: EndpointSlice
         replicas: 1
         retention: 15d
         scrapeInterval: 30s

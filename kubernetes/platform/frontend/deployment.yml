@@ -49,7 +49,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: frontend
-          image: ghcr.io/edinstance/edinstance-lab/frontend:sha-f9e0293
+          image: ghcr.io/edinstance/edinstance-lab/frontend:sha-2fae7b9
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

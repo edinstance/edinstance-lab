@@ -16,6 +16,10 @@ spec:
         - podSelector:
             matchLabels:
               app.kubernetes.io/name: grafana
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: loki
+              app.kubernetes.io/component: gateway
       ports:
         - protocol: TCP
           port: 3100

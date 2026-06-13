@@ -158,10 +158,12 @@ export function useManageController() {
       setDatabases((current) => [...current, database]);
       setDatabaseForm((current) => ({ ...current, name: "", password: "" }));
       setNotice(`${database.name} PostgreSQL cluster requested`);
+      return true;
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Unable to create database",
       );
+      return false;
     } finally {
       setSaving(false);
     }

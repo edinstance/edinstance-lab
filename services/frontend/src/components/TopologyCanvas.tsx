@@ -16,6 +16,7 @@ import { createServiceTopology } from "../topology/topology";
 import { TopologyNode } from "./TopologyNode";
 import type { NodeTypes } from "@xyflow/react";
 import type { PlatformApp } from "../topology/topology";
+import type { PostgresDatabase } from "../platform/api";
 import type {
   TopologyEdge,
   TopologyNode as TopologyNodeType,
@@ -23,13 +24,16 @@ import type {
 
 const nodeTypes: NodeTypes = { topologyNode: TopologyNode };
 const emptyApps: Array<PlatformApp> = [];
+const emptyDatabases: Array<PostgresDatabase> = [];
 
 interface Props {
   apps?: Array<PlatformApp>;
+  databases?: Array<PostgresDatabase>;
   loading?: boolean;
   selectedNodeId?: string | null;
   onSelect?: (id: string) => void;
-  onAdd?: () => void;
+  onAddService?: () => void;
+  onAddDatabase?: () => void;
 }
 
 export function TopologyCanvas(props: Props) {
@@ -37,8 +41,10 @@ export function TopologyCanvas(props: Props) {
     <ReactFlowProvider>
       <TopologyCanvasInner
         apps={props.apps ?? emptyApps}
+        databases={props.databases ?? emptyDatabases}
         loading={props.loading ?? false}
-        onAdd={props.onAdd}
+        onAddDatabase={props.onAddDatabase}
+        onAddService={props.onAddService}
         onSelect={props.onSelect}
         selectedNodeId={props.selectedNodeId ?? null}
       />
@@ -48,13 +54,18 @@ export function TopologyCanvas(props: Props) {
 
 function TopologyCanvasInner({
   apps,
+  databases,
   loading,
   selectedNodeId,
   onSelect,
-  onAdd,
-}: Required<Pick<Props, "apps" | "loading" | "selectedNodeId">> &
-  Pick<Props, "onSelect" | "onAdd">) {
-  const topology = useMemo(() => createServiceTopology(apps), [apps]);
+  onAddService,
+  onAddDatabase,
+}: Required<Pick<Props, "apps" | "databases" | "loading" | "selectedNodeId">> &
+  Pick<Props, "onSelect" | "onAddService" | "onAddDatabase">) {
+  const topology = useMemo(
+    () => createServiceTopology(apps, databases),
+    [apps, databases],
+  );
   const { fitView } = useReactFlow<TopologyNodeType, TopologyEdge>();
 
   const [nodes, setNodes, onNodesChange] = useNodesState<TopologyNodeType>(
@@ -82,7 +93,7 @@ function TopologyCanvasInner({
       void fitView({ padding: 0.18, duration: 420 });
     });
     return () => cancelAnimationFrame(frame);
-  }, [apps.length, fitView]);
+  }, [apps.length, databases.length, fitView]);
 
   return (
     <section className="h-full p-3" aria-label="Platform service canvas">
@@ -128,13 +139,20 @@ function TopologyCanvasInner({
               </div>
             </div>
           </Panel>
-          <Panel className="!m-5" position="top-right">
+          <Panel className="!m-5 flex gap-3" position="top-right">
             <button
               className="flex min-h-12 items-center gap-2 rounded-xl border border-[#484052] bg-[#211d2b] px-5 text-sm font-semibold text-white shadow-xl transition hover:border-[#76558f] hover:bg-[#2a2336]"
-              onClick={onAdd}
+              onClick={onAddService}
               type="button"
             >
               <span className="text-xl text-[#bd8cff]">＋</span> Add service
+            </button>
+            <button
+              className="flex min-h-12 items-center gap-2 rounded-xl border border-[#484052] bg-[#211d2b] px-5 text-sm font-semibold text-white shadow-xl transition hover:border-[#76558f] hover:bg-[#2a2336]"
+              onClick={onAddDatabase}
+              type="button"
+            >
+              <span className="text-xl text-[#67dba2]">＋</span> Add PostgreSQL
             </button>
           </Panel>
           {loading ? (
@@ -145,14 +163,15 @@ function TopologyCanvasInner({
               Loading services…
             </Panel>
           ) : null}
-          {!loading && !apps.length ? (
+          {!loading && !apps.length && !databases.length ? (
             <Panel
               className="rounded-xl border border-[#393342] bg-[#17141f]/95 px-6 py-5 text-center shadow-2xl"
               position="top-center"
             >
               <p className="m-0 font-semibold">Your canvas is empty</p>
               <p className="mt-1 mb-0 text-sm text-[#91899f]">
-                Add a service to deploy your first workload.
+                Add a service or PostgreSQL cluster to deploy your first
+                workload.
               </p>
             </Panel>
           ) : null}

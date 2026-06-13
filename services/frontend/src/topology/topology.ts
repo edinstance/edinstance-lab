@@ -1,6 +1,7 @@
 import { MarkerType, Position } from "@xyflow/react";
 
 import type { TopologyEdge, TopologyNode } from "./types";
+import type { PostgresDatabase } from "../platform/api";
 
 export interface PlatformApp {
   name: string;
@@ -28,7 +29,10 @@ const edgeDefaults = {
   },
 } as const;
 
-export function createServiceTopology(apps: Array<PlatformApp>): {
+export function createServiceTopology(
+  apps: Array<PlatformApp>,
+  databases: Array<PostgresDatabase> = [],
+): {
   nodes: Array<TopologyNode>;
   edges: Array<TopologyEdge>;
 } {
@@ -53,8 +57,30 @@ export function createServiceTopology(apps: Array<PlatformApp>): {
     },
   }));
 
+  const databaseNodes = databases.map<TopologyNode>((database, index) => ({
+    id: `database:${database.name}`,
+    type: "topologyNode",
+    position: { x: 1800, y: 140 + index * 220 },
+    data: {
+      title: database.name,
+      subtitle: `${database.instances} ${database.instances === 1 ? "instance" : "instances"}${database.poolerEnabled ? " + PgBouncer" : ""}`,
+      details: `${database.name} runs PostgreSQL ${database.version} for database ${database.database}.`,
+      category: "database",
+      status: database.status,
+      targetPosition: Position.Left,
+      facts: {
+        host: database.host,
+        database: database.database,
+        owner: database.owner,
+        public: database.publicHostname,
+      },
+      sources: ["platform.edinstance.uk/v1alpha1 PostgresDatabase"],
+    },
+  }));
+
   const nodes: Array<TopologyNode> = [
     ...serviceNodes,
+    ...databaseNodes,
     {
       id: "platform-frontend",
       type: "topologyNode",
@@ -111,6 +137,13 @@ export function createServiceTopology(apps: Array<PlatformApp>): {
       source: "platform-api",
       target: app.name,
       data: { flow: "runtime", label: "managed workload" },
+    })),
+    ...databases.map<TopologyEdge>((database) => ({
+      ...edgeDefaults,
+      id: `platform-api-database-${database.name}`,
+      source: "platform-api",
+      target: `database:${database.name}`,
+      data: { flow: "runtime", label: "managed database" },
     })),
     {
       ...edgeDefaults,

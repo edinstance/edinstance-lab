@@ -57,6 +57,8 @@ spec:
           env:
             - name: BETTER_AUTH_URL
               value: https://ui.edinstance.uk
+            - name: BETTER_AUTH_TRUSTED_ORIGINS
+              value: https://ui.edinstance.uk,https://ui.local.edinstance.uk
             - name: BETTER_AUTH_SECRET
               valueFrom:
                 secretKeyRef:

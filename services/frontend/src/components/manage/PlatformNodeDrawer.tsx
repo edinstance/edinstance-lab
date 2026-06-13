@@ -32,6 +32,13 @@ export function PlatformNodeDrawer({ node, onClose }: PlatformNodeDrawerProps) {
         <p className="mt-0 text-base leading-7 text-[#c8c1d0]">
           {node.details}
         </p>
+        <div className="mt-6 rounded-xl border border-[#3a3445] bg-[#1a1722] px-5 py-4">
+          <p className="m-0 text-sm leading-6 text-[#c8c1d0]">
+            Environment variables, metrics, logs, and deployment controls are
+            available on managed service cards. Select a service workload to
+            open those tabs.
+          </p>
+        </div>
         <dl className="mt-8 grid gap-3">
           {Object.entries(node.facts).map(([label, value]) =>
             value ? (

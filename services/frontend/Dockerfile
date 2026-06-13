@@ -16,8 +16,8 @@ RUN pnpm build && pnpm prune --prod
 FROM node:24-bookworm-slim
 
 ENV NODE_ENV=production
-ENV HOST=0.0.0.0
-ENV PORT=3000
+ENV NITRO_HOST=0.0.0.0
+ENV NITRO_PORT=3000
 
 WORKDIR /app
 COPY --from=build --chown=node:node /app/.output ./.output

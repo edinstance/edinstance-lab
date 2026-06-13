@@ -23,9 +23,19 @@ export function TopologyNode({
       <div className="flex-1 p-6">
         <div className="flex items-start gap-3">
           <div
-            className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl border ${data.category === "service" ? "border-[#5b4270] bg-[#281d35] text-[#c084fc]" : "border-[#45404d] bg-[#211e27] text-[#aaa3b4]"}`}
+            className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl border ${
+              data.category === "service"
+                ? "border-[#5b4270] bg-[#281d35] text-[#c084fc]"
+                : data.category === "database"
+                  ? "border-[#34534a] bg-[#172820] text-[#67dba2]"
+                  : "border-[#45404d] bg-[#211e27] text-[#aaa3b4]"
+            }`}
           >
-            {data.category === "service" ? "</>" : "◆"}
+            {data.category === "service"
+              ? "</>"
+              : data.category === "database"
+                ? "DB"
+                : "◆"}
           </div>
           <div className="min-w-0">
             <h3 className="m-0 truncate text-lg font-semibold tracking-[-.015em] text-[#f6f2fa]">

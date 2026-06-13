@@ -5,6 +5,7 @@ export type TopologyCategory =
   | "dns"
   | "gateway"
   | "registry"
+  | "database"
   | "service"
   | "system";
 

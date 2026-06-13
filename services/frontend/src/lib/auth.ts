@@ -17,6 +17,10 @@ import type { BetterAuthPlugin } from "better-auth";
 import type { FailedAttempts } from "./rate-limit";
 
 const baseURL = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
+const trustedOrigins = (process.env.BETTER_AUTH_TRUSTED_ORIGINS ?? baseURL)
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
 const authDatabase = new Pool({
   host: requiredEnv("PLATFORM_DATABASE_HOST"),
@@ -48,6 +52,7 @@ export function getAdminPassword() {
 export const auth = betterAuth({
   appName: "edinstance platform",
   baseURL,
+  trustedOrigins,
   database: authDatabase,
   emailAndPassword: {
     enabled: true,

@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 
 import { getAppLogs, getAppMetrics } from "../../platform/api";
 import { grafanaLogsFor, grafanaPlatformDashboard } from "./grafana";
 import { LogStream } from "./LogStream";
 import { MetricChart } from "./MetricChart";
 import { ServiceStat } from "./ServiceStat";
-import type { AppMetrics, LogEntry } from "../../platform/api";
 import type { TopologyNodeData } from "../../topology/types";
 
 interface PlatformNodeDrawerProps {
@@ -122,34 +122,22 @@ function PlatformOverview({ node }: { node: TopologyNodeData }) {
 
 function PlatformMetrics({ node }: { node: TopologyNodeData }) {
   const observability = node.observability;
+  const app = observability?.app;
+  const namespace = observability?.namespace;
   const [hours, setHours] = useState(6);
-  const [metrics, setMetrics] = useState<AppMetrics | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!observability) return;
-
-    let cancelled = false;
-    setError(null);
-
-    void getAppMetrics(observability.app, hours, {
-      namespace: observability.namespace,
-      app: observability.app,
-    })
-      .then((value) => {
-        if (!cancelled) setMetrics(value);
-      })
-      .catch((caught: unknown) => {
-        if (cancelled) return;
-        setError(
-          caught instanceof Error ? caught.message : "Unable to load metrics",
-        );
+  const { data, error } = useQuery({
+    enabled: Boolean(app && namespace),
+    queryKey: ["platform-metrics", namespace, app, hours],
+    queryFn: () => {
+      if (!app || !namespace)
+        throw new Error("No metrics target is configured for this node.");
+      return getAppMetrics(app, hours, {
+        namespace,
+        app,
       });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [hours, observability]);
+    },
+    staleTime: 15_000,
+  });
 
   if (!observability)
     return (
@@ -187,17 +175,21 @@ function PlatformMetrics({ node }: { node: TopologyNodeData }) {
       </div>
 
       {error ? (
-        <Unavailable text={error} />
+        <Unavailable
+          text={
+            error instanceof Error ? error.message : "Unable to load metrics"
+          }
+        />
       ) : (
         <div className="grid grid-cols-2 gap-5 max-[760px]:grid-cols-1">
           <MetricChart
             label="CPU"
-            series={metrics?.series.cpu ?? []}
+            series={data?.series.cpu ?? []}
             unit="vCPU"
           />
           <MetricChart
             label="Memory"
-            series={metrics?.series.memory ?? []}
+            series={data?.series.memory ?? []}
             unit="bytes"
           />
         </div>
@@ -208,45 +200,42 @@ function PlatformMetrics({ node }: { node: TopologyNodeData }) {
 
 function PlatformLogs({ node }: { node: TopologyNodeData }) {
   const observability = node.observability;
-  const [entries, setEntries] = useState<Array<LogEntry>>([]);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!observability) return;
-
-    let cancelled = false;
-    setError(null);
-
-    void getAppLogs(observability.app, {
-      namespace: observability.namespace,
-      app: observability.app,
-      limit: 150,
-    })
-      .then((value) => {
-        if (!cancelled) setEntries(value);
-      })
-      .catch((caught: unknown) => {
-        if (cancelled) return;
-        setError(
-          caught instanceof Error ? caught.message : "Unable to load logs",
-        );
+  const app = observability?.app;
+  const namespace = observability?.namespace;
+  const { data, error } = useQuery({
+    enabled: Boolean(app && namespace),
+    queryKey: ["platform-logs", namespace, app],
+    queryFn: () => {
+      if (!app || !namespace)
+        throw new Error("No log target is configured for this node.");
+      return getAppLogs(app, {
+        namespace,
+        app,
+        limit: 150,
       });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [observability]);
+    },
+    staleTime: 10_000,
+  });
 
   if (!observability)
     return <Unavailable text="No log target is configured for this node." />;
 
   if (error) {
-    return <Unavailable text={error} />;
+    return (
+      <Unavailable
+        text={
+          error instanceof Error ? error.message : "Unable to load logs"
+        }
+      />
+    );
   }
 
   return (
     <div className="grid gap-5">
-      <LogStream appName={grafanaLogsFor(observability)} entries={entries} />
+      <LogStream
+        appName={grafanaLogsFor(observability)}
+        entries={data ?? []}
+      />
     </div>
   );
 }

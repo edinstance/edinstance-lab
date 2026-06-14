@@ -1,40 +1,21 @@
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 
 import { getAppMetrics } from "../../platform/api";
 import { EmptyState } from "./EmptyState";
 import { grafanaDashboard } from "./grafana";
 import { MetricChart } from "./MetricChart";
 import type { PlatformApp } from "../../topology/topology";
-import type { AppMetrics } from "../../platform/api";
 
 const timeRanges = [1, 6, 24, 168];
 
 export function MetricsTab({ app }: { app: PlatformApp }) {
   const [hours, setHours] = useState(6);
-  const [metrics, setMetrics] = useState<AppMetrics | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    setError(null);
-
-    void getAppMetrics(app.name, hours)
-      .then((value) => {
-        if (!cancelled) setMetrics(value);
-      })
-      .catch((caught: unknown) => {
-        if (cancelled) return;
-
-        setError(
-          caught instanceof Error ? caught.message : "Unable to load metrics",
-        );
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [app.name, hours]);
+  const { data, error } = useQuery({
+    queryKey: ["app-metrics", app.name, hours],
+    queryFn: () => getAppMetrics(app.name, hours),
+    staleTime: 15_000,
+  });
 
   return (
     <div className="grid gap-5">
@@ -67,17 +48,21 @@ export function MetricsTab({ app }: { app: PlatformApp }) {
       </div>
 
       {error ? (
-        <EmptyState text={error} />
+        <EmptyState
+          text={
+            error instanceof Error ? error.message : "Unable to load metrics"
+          }
+        />
       ) : (
         <div className="grid grid-cols-2 gap-5 max-[760px]:grid-cols-1">
           <MetricChart
             label="CPU"
-            series={metrics?.series.cpu ?? []}
+            series={data?.series.cpu ?? []}
             unit="vCPU"
           />
           <MetricChart
             label="Memory"
-            series={metrics?.series.memory ?? []}
+            series={data?.series.memory ?? []}
             unit="bytes"
           />
         </div>

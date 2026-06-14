@@ -1,3 +1,4 @@
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
@@ -12,11 +13,21 @@ import {
   setEnvVar,
   uploadEnvFile,
 } from "../../platform/api";
+import {
+  appEnvVarsQueryKey,
+  sessionQueryKey,
+  topologyQueryKey,
+} from "../../platform/queryKeys";
 import type { ChangeEvent, FormEvent } from "react";
 
 import type { EnvVariable, PostgresDatabase } from "../../platform/api";
 import type { PlatformApp } from "../../topology/topology";
 import type { AppForm, DatabaseForm, EnvDraft, ManageState } from "./types";
+
+interface ManageTopology {
+  apps: Array<PlatformApp>;
+  databases: Array<PostgresDatabase>;
+}
 
 const initialAppForm: AppForm = {
   name: "",
@@ -44,54 +55,60 @@ const initialDatabaseForm: DatabaseForm = {
 
 export function useManageController() {
   const navigate = useNavigate();
-  const [apps, setApps] = useState<Array<PlatformApp>>([]);
-  const [databases, setDatabases] = useState<Array<PostgresDatabase>>([]);
+  const queryClient = useQueryClient();
   const [form, setForm] = useState(initialAppForm);
   const [databaseForm, setDatabaseForm] = useState(initialDatabaseForm);
   const [envDraft, setEnvDraft] = useState<EnvDraft>({ name: "", value: "" });
   const [envVars, setEnvVars] = useState<Record<string, Array<EnvVariable>>>(
     {},
   );
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [busyApp, setBusyApp] = useState<string | null>(null);
   const [envApp, setEnvApp] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  async function refreshApps() {
-    setApps(await listApps());
+  const {
+    data: sessionData,
+    error: sessionError,
+    isLoading: sessionLoading,
+  } = useQuery({
+    queryKey: sessionQueryKey,
+    queryFn: getSession,
+    retry: false,
+  });
+
+  const {
+    data: topologyData,
+    error: topologyError,
+    isLoading: topologyLoading,
+  } = useQuery({
+    enabled: sessionData?.authenticated === true,
+    queryKey: topologyQueryKey,
+    queryFn: async () => {
+      const [apps, databases] = await Promise.all([
+        listApps(),
+        listDatabases(),
+      ]);
+      return { apps, databases };
+    },
+  });
+
+  const apps = topologyData?.apps ?? [];
+  const databases = topologyData?.databases ?? [];
+  const loading =
+    sessionLoading ||
+    (sessionData?.authenticated === true && topologyLoading);
+  const loadError = sessionError ?? topologyError;
+
+  async function refreshTopology() {
+    await queryClient.invalidateQueries({ queryKey: topologyQueryKey });
   }
 
   useEffect(() => {
-    const request = { cancelled: false };
-    void (async () => {
-      try {
-        if (!(await getSession()).authenticated) {
-          await navigate({ to: "/login" });
-          return;
-        }
-        const [nextApps, nextDatabases] = await Promise.all([
-          listApps(),
-          listDatabases(),
-        ]);
-        if (!request.cancelled) {
-          setApps(nextApps);
-          setDatabases(nextDatabases);
-        }
-      } catch (err) {
-        if (!request.cancelled)
-          setError(
-            err instanceof Error ? err.message : "Unable to load services",
-          );
-      } finally {
-        if (!request.cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      request.cancelled = true;
-    };
-  }, [navigate]);
+    if (sessionData && !sessionData.authenticated)
+      void navigate({ to: "/login" });
+  }, [navigate, sessionData]);
 
   async function createAppFromForm(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -120,7 +137,7 @@ export function useManageController() {
       });
       setForm(initialAppForm);
       setNotice(`${app.name} created`);
-      await refreshApps();
+      await refreshTopology();
       return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to create app");
@@ -155,7 +172,11 @@ export function useManageController() {
               .filter(Boolean)
           : [],
       });
-      setDatabases((current) => [...current, database]);
+      queryClient.setQueryData<ManageTopology>(topologyQueryKey, (current) =>
+        current
+          ? { ...current, databases: [...current.databases, database] }
+          : { apps, databases: [database] },
+      );
       setDatabaseForm((current) => ({ ...current, name: "", password: "" }));
       setNotice(`${database.name} PostgreSQL cluster requested`);
       return true;
@@ -177,7 +198,7 @@ export function useManageController() {
     try {
       await deleteApp(app.name);
       setNotice(`${app.name} deleted`);
-      await refreshApps();
+      await refreshTopology();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to delete app");
     } finally {
@@ -202,8 +223,9 @@ export function useManageController() {
     try {
       const result = await uploadEnvFile(app.name, await file.text());
       setEnvVars((current) => ({ ...current, [app.name]: result.env }));
+      queryClient.setQueryData(appEnvVarsQueryKey(app.name), result.env);
       setNotice(`${app.name} env updated: ${result.env.length} secrets stored`);
-      await refreshApps();
+      await refreshTopology();
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Unable to upload env file",
@@ -223,7 +245,11 @@ export function useManageController() {
     if (!(app.name in envVars)) {
       setBusyApp(app.name);
       try {
-        const variables = await listEnvVars(app.name);
+        const variables = await queryClient.fetchQuery({
+          queryKey: appEnvVarsQueryKey(app.name),
+          queryFn: () => listEnvVars(app.name),
+          staleTime: 30_000,
+        });
         setEnvVars((current) => ({ ...current, [app.name]: variables }));
       } catch (err) {
         setError(
@@ -253,13 +279,12 @@ export function useManageController() {
     setError(null);
     try {
       const variable = await setEnvVar(app.name, name, envDraft.value);
-      setEnvVars((current) => ({
-        ...current,
-        [app.name]: [
-          ...(current[app.name] ?? []).filter((item) => item.name !== name),
-          variable,
-        ].sort((a, b) => a.name.localeCompare(b.name)),
-      }));
+      const nextVariables = [
+        ...(envVars[app.name] ?? []).filter((item) => item.name !== name),
+        variable,
+      ].sort((a, b) => a.name.localeCompare(b.name));
+      setEnvVars((current) => ({ ...current, [app.name]: nextVariables }));
+      queryClient.setQueryData(appEnvVarsQueryKey(app.name), nextVariables);
       setEnvDraft({ name: "", value: "" });
       setNotice(`${name} saved; ${app.name} reconciliation requested`);
     } catch (err) {
@@ -278,12 +303,11 @@ export function useManageController() {
     setError(null);
     try {
       await deleteEnvVar(app.name, name);
-      setEnvVars((current) => ({
-        ...current,
-        [app.name]: (current[app.name] ?? []).filter(
-          (item) => item.name !== name,
-        ),
-      }));
+      const nextVariables = (envVars[app.name] ?? []).filter(
+        (item) => item.name !== name,
+      );
+      setEnvVars((current) => ({ ...current, [app.name]: nextVariables }));
+      queryClient.setQueryData(appEnvVarsQueryKey(app.name), nextVariables);
       setNotice(`${name} deleted; ${app.name} reconciliation requested`);
     } catch (err) {
       setError(
@@ -301,7 +325,11 @@ export function useManageController() {
     databases,
     loading,
     saving,
-    error,
+    error:
+      error ??
+      (loadError instanceof Error
+        ? loadError.message
+        : null),
     notice,
     busyApp,
     envApp,

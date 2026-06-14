@@ -1,4 +1,14 @@
+import { useMemo } from "react";
+import { Chart } from "react-charts";
+
 import type { MetricSeries } from "../../platform/api";
+import type {
+  AxisOptions,
+  ChartOptions,
+  Datum,
+  Series,
+} from "react-charts";
+import type { TooltipRendererProps } from "react-charts/types/components/TooltipRenderer";
 
 const chartColors = [
   "#a855f7",
@@ -9,14 +19,10 @@ const chartColors = [
   "#22d3ee",
 ];
 
-const chartWidth = 640;
-const chartHeight = 260;
-const plotTop = 18;
-const plotRight = 12;
-const plotBottom = 34;
-const plotLeft = 54;
-const plotWidth = chartWidth - plotLeft - plotRight;
-const plotHeight = chartHeight - plotTop - plotBottom;
+interface MetricDatum {
+  time: Date;
+  value: number;
+}
 
 export function MetricChart({
   label,
@@ -34,10 +40,80 @@ export function MetricChart({
   const maxValue = niceMax(Math.max(...points, 0));
   const totalCurrent = prepared.reduce((sum, item) => sum + item.current, 0);
   const peak = Math.max(...points, 0);
-  const [start, end] = timeRange(prepared);
   const visibleSeries = prepared.slice(0, 8);
   const hiddenCount = Math.max(prepared.length - visibleSeries.length, 0);
-  const ticks = yTicks(maxValue);
+  const data = useMemo(
+    () =>
+      visibleSeries.map((item, index) => ({
+        data: item.values.map(([time, value]) => ({
+          time: new Date(time * 1000),
+          value,
+        })),
+        label: shortPodName(item.pod),
+        color: chartColors[index % chartColors.length],
+      })),
+    [visibleSeries],
+  );
+  const primaryAxis = useMemo(
+    (): AxisOptions<MetricDatum> => ({
+      getValue: (datum) => datum.time,
+      scaleType: "localTime",
+      showGrid: false,
+      formatters: {
+        scale: formatTimeLabel,
+        tooltip: formatHoverTime,
+      },
+    }),
+    [],
+  );
+  const secondaryAxes = useMemo(
+    (): Array<AxisOptions<MetricDatum>> => [
+      {
+        elementType: "line",
+        getValue: (datum) => datum.value,
+        hardMax: maxValue,
+        hardMin: 0,
+        scaleType: "linear",
+        showDatumElements: "onFocus",
+        showGrid: true,
+        formatters: {
+          scale: (value) => formatMetric(value, unit),
+          tooltip: (value) => formatMetric(value, unit),
+        },
+      },
+    ],
+    [maxValue, unit],
+  );
+  const chartOptions = useMemo(
+    (): ChartOptions<MetricDatum> => ({
+      data,
+      dark: true,
+      defaultColors: chartColors,
+      getDatumStyle,
+      getSeriesStyle,
+      interactionMode: "primary",
+      padding: {
+        bottom: 28,
+        left: 56,
+        right: 14,
+        top: 16,
+      },
+      primaryAxis,
+      primaryCursor: {
+        show: true,
+        showLabel: false,
+        showLine: true,
+      },
+      secondaryAxes,
+      showVoronoi: true,
+      tooltip: {
+        align: "right",
+        groupingMode: "primary",
+        render: (props) => <MetricTooltip {...props} unit={unit} />,
+      },
+    }),
+    [data, primaryAxis, secondaryAxes, unit],
+  );
 
   return (
     <section className="rounded-xl border border-[#383141] bg-[#15121d] p-5">
@@ -55,79 +131,9 @@ export function MetricChart({
       </div>
 
       <div className="relative overflow-hidden rounded-lg border border-[#292431] bg-[#100e17]">
-        <svg
-          aria-label={`${label} usage by pod`}
-          className="h-72 w-full"
-          preserveAspectRatio="none"
-          role="img"
-          viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-        >
-          <rect
-            fill="transparent"
-            height={plotHeight}
-            width={plotWidth}
-            x={plotLeft}
-            y={plotTop}
-          />
-          {ticks.map((tick) => {
-            const y = yForValue(tick, maxValue);
-            return (
-              <g key={tick}>
-                <line
-                  stroke="#282331"
-                  strokeWidth="1"
-                  vectorEffect="non-scaling-stroke"
-                  x1={plotLeft}
-                  x2={chartWidth - plotRight}
-                  y1={y}
-                  y2={y}
-                />
-                <text
-                  fill="#8f879e"
-                  fontSize="11"
-                  textAnchor="end"
-                  x={plotLeft - 10}
-                  y={y + 4}
-                >
-                  {formatMetric(tick, unit)}
-                </text>
-              </g>
-            );
-          })}
-          {visibleSeries.map((item, index) => (
-            <polyline
-              fill="none"
-              key={item.pod}
-              points={chartPoints(item.values, start, end, maxValue)}
-              stroke={chartColors[index % chartColors.length]}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2.4"
-              vectorEffect="non-scaling-stroke"
-            />
-          ))}
-          <line
-            stroke="#3a3445"
-            strokeWidth="1"
-            vectorEffect="non-scaling-stroke"
-            x1={plotLeft}
-            x2={chartWidth - plotRight}
-            y1={chartHeight - plotBottom}
-            y2={chartHeight - plotBottom}
-          />
-          <text fill="#8f879e" fontSize="11" x={plotLeft} y={chartHeight - 10}>
-            {formatTime(start)}
-          </text>
-          <text
-            fill="#8f879e"
-            fontSize="11"
-            textAnchor="end"
-            x={chartWidth - plotRight}
-            y={chartHeight - 10}
-          >
-            {formatTime(end)}
-          </text>
-        </svg>
+        <div className="h-72 w-full text-[#aaa2b5]">
+          {prepared.length ? <Chart options={chartOptions} /> : null}
+        </div>
 
         {!prepared.length ? (
           <div className="absolute inset-0 grid place-items-center text-sm text-[#777080]">
@@ -176,6 +182,53 @@ function SummaryStat({ label, value }: { label: string; value: string }) {
   );
 }
 
+function MetricTooltip({
+  focusedDatum,
+  getOptions,
+  getDatumStyle: getTooltipDatumStyle,
+  unit,
+}: TooltipRendererProps<MetricDatum> & { unit: "vCPU" | "bytes" }) {
+  if (!focusedDatum) return null;
+
+  const datums = (focusedDatum.tooltipGroup ?? [focusedDatum]).filter(
+    (datum): datum is Datum<MetricDatum> => Boolean(datum),
+  );
+  const visibleDatums = datums.filter(
+    (datum) => getOptions().tooltip.showDatumInTooltip?.(datum) ?? true,
+  );
+
+  return (
+    <div className="min-w-56 rounded-lg border border-[#41394d] bg-[#17131f]/95 px-3 py-2 shadow-2xl shadow-black/30 backdrop-blur">
+      <p className="m-0 mb-2 text-xs font-medium text-[#aaa2b5]">
+        {formatHoverTime(focusedDatum.originalDatum.time)}
+      </p>
+      <div className="grid gap-1.5">
+        {visibleDatums.map((datum) => {
+          const style = getTooltipDatumStyle(datum);
+
+          return (
+            <div
+              className="grid grid-cols-[9px_minmax(7rem,1fr)_auto] items-center gap-2 text-xs"
+              key={`${datum.seriesId}-${datum.index}`}
+            >
+              <i
+                className="h-2 w-2 rounded-full"
+                style={{ backgroundColor: String(style.color) }}
+              />
+              <span className="truncate text-[#c8c0d2]">
+                {datum.seriesLabel}
+              </span>
+              <span className="font-mono text-[#f2edf7]">
+                {formatMetric(Number(datum.secondaryValue ?? 0), unit)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function prepareSeries(series: Array<MetricSeries>) {
   return series
     .map((item) => ({
@@ -191,40 +244,6 @@ function prepareSeries(series: Array<MetricSeries>) {
       }
       return right.peak - left.peak;
     });
-}
-
-function timeRange(series: ReturnType<typeof prepareSeries>): [number, number] {
-  const timestamps = series.flatMap((item) =>
-    item.values.map((point) => point[0]),
-  );
-  const start = Math.min(...timestamps, Date.now() / 1000);
-  const end = Math.max(...timestamps, start + 1);
-  return [start, end];
-}
-
-function chartPoints(
-  values: Array<[number, number]>,
-  start: number,
-  end: number,
-  maxValue: number,
-) {
-  const span = Math.max(end - start, 1);
-
-  return values
-    .map(([time, value]) => {
-      const x = plotLeft + ((time - start) / span) * plotWidth;
-      const y = yForValue(value, maxValue);
-      return `${x},${y}`;
-    })
-    .join(" ");
-}
-
-function yForValue(value: number, maxValue: number) {
-  return plotTop + plotHeight - (value / maxValue) * plotHeight;
-}
-
-function yTicks(maxValue: number) {
-  return [maxValue, maxValue * 0.5, 0];
 }
 
 function niceMax(value: number) {
@@ -245,11 +264,58 @@ function formatMetric(value: number, unit: "vCPU" | "bytes") {
   return `${value.toFixed(0)} B`;
 }
 
-function formatTime(timestamp: number) {
-  return new Date(timestamp * 1000).toLocaleTimeString([], {
+function formatTimeLabel(timestamp: Date) {
+  return timestamp.toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function formatHoverTime(timestamp: Date) {
+  return timestamp.toLocaleString([], {
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    month: "short",
+    timeZoneName: "short",
+  });
+}
+
+function getSeriesStyle(
+  series: Series<MetricDatum>,
+): React.CSSProperties & {
+  line?: React.CSSProperties;
+  circle?: React.CSSProperties;
+} {
+  const color = series.originalSeries.color ?? chartColors[0];
+
+  return {
+    color,
+    line: {
+      stroke: color,
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+      strokeWidth: 2.4,
+    },
+  };
+}
+
+function getDatumStyle(
+  datum: Datum<MetricDatum>,
+): React.CSSProperties & {
+  circle?: React.CSSProperties;
+} {
+  const color = datum.originalSeries.color ?? chartColors[0];
+
+  return {
+    color,
+    circle: {
+      fill: "#100e17",
+      r: 4,
+      stroke: color,
+      strokeWidth: 2,
+    },
+  };
 }
 
 function shortPodName(pod: string) {

@@ -62,6 +62,7 @@ export function MetricChart({
       scaleType: "localTime",
       showGrid: false,
       formatters: {
+        cursor: formatHoverTime,
         scale: formatTimeLabel,
         tooltip: formatHoverTime,
       },
@@ -79,6 +80,7 @@ export function MetricChart({
         showDatumElements: "onFocus",
         showGrid: true,
         formatters: {
+          cursor: (value) => formatMetric(value, unit),
           scale: (value) => formatMetric(value, unit),
           tooltip: (value) => formatMetric(value, unit),
         },

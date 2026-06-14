@@ -95,7 +95,7 @@ export function MetricChart({
       defaultColors: chartColors,
       getDatumStyle,
       getSeriesStyle,
-      interactionMode: "primary",
+      interactionMode: "closest",
       padding: {
         bottom: 28,
         left: 56,
@@ -108,11 +108,16 @@ export function MetricChart({
         showLabel: false,
         showLine: true,
       },
+      secondaryCursor: {
+        show: true,
+        showLabel: false,
+        showLine: true,
+      },
       secondaryAxes,
       showVoronoi: true,
       tooltip: {
         align: "right",
-        groupingMode: "primary",
+        groupingMode: "single",
         render: (props) => <MetricTooltip {...props} unit={unit} />,
       },
     }),
@@ -188,18 +193,12 @@ function SummaryStat({ label, value }: { label: string; value: string }) {
 
 function MetricTooltip({
   focusedDatum,
-  getOptions,
   getDatumStyle: getTooltipDatumStyle,
   unit,
 }: TooltipRendererProps<MetricDatum> & { unit: "vCPU" | "bytes" }) {
   if (!focusedDatum) return null;
 
-  const datums = (focusedDatum.tooltipGroup ?? [focusedDatum]).filter(
-    (datum): datum is Datum<MetricDatum> => Boolean(datum),
-  );
-  const visibleDatums = datums.filter(
-    (datum) => getOptions().tooltip.showDatumInTooltip?.(datum) ?? true,
-  );
+  const style = getTooltipDatumStyle(focusedDatum);
 
   return (
     <div className="min-w-56 rounded-lg border border-[#41394d] bg-[#17131f]/95 px-3 py-2 shadow-2xl shadow-black/30 backdrop-blur">
@@ -207,27 +206,18 @@ function MetricTooltip({
         {formatHoverTime(focusedDatum.originalDatum.time)}
       </p>
       <div className="grid gap-1.5">
-        {visibleDatums.map((datum) => {
-          const style = getTooltipDatumStyle(datum);
-
-          return (
-            <div
-              className="grid grid-cols-[9px_minmax(7rem,1fr)_auto] items-center gap-2 text-xs"
-              key={`${datum.seriesId}-${datum.index}`}
-            >
-              <i
-                className="h-2 w-2 rounded-full"
-                style={{ backgroundColor: String(style.color) }}
-              />
-              <span className="truncate text-[#c8c0d2]">
-                {datum.seriesLabel}
-              </span>
-              <span className="font-mono text-[#f2edf7]">
-                {formatMetric(Number(datum.secondaryValue ?? 0), unit)}
-              </span>
-            </div>
-          );
-        })}
+        <div className="grid grid-cols-[9px_minmax(7rem,1fr)_auto] items-center gap-2 text-xs">
+          <i
+            className="h-2 w-2 rounded-full"
+            style={{ backgroundColor: String(style.color) }}
+          />
+          <span className="truncate text-[#c8c0d2]">
+            {focusedDatum.seriesLabel}
+          </span>
+          <span className="font-mono text-[#f2edf7]">
+            {formatMetric(Number(focusedDatum.secondaryValue ?? 0), unit)}
+          </span>
+        </div>
       </div>
     </div>
   );

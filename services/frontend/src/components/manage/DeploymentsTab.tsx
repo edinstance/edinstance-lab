@@ -4,9 +4,13 @@ import type { PlatformApp } from "../../topology/topology";
 
 export function DeploymentsTab({
   app,
+  busy,
+  onRedeploy,
   onViewLogs,
 }: {
   app: PlatformApp;
+  busy: boolean;
+  onRedeploy: () => void;
   onViewLogs: () => void;
 }) {
   return (
@@ -76,13 +80,25 @@ export function DeploymentsTab({
               ) : null}
             </div>
 
-            <button
-              className="secondary-action"
-              onClick={onViewLogs}
-              type="button"
-            >
-              View logs
-            </button>
+            <div className="flex gap-3">
+              {!app.ready ? (
+                <button
+                  className="secondary-action"
+                  disabled={busy}
+                  onClick={onRedeploy}
+                  type="button"
+                >
+                  {busy ? "Redeploying…" : "Redeploy"}
+                </button>
+              ) : null}
+              <button
+                className="secondary-action"
+                onClick={onViewLogs}
+                type="button"
+              >
+                View logs
+              </button>
+            </div>
           </div>
         </article>
       </section>

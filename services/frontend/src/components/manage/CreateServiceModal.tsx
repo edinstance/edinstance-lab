@@ -99,6 +99,14 @@ export function CreateServiceModal({
               onChange={(e) => update("replicas", e.target.value)}
             />
           </Field>
+          <Field label="Health route">
+            <Input
+              required
+              value={state.form.healthPath}
+              placeholder="/health"
+              onChange={(e) => update("healthPath", e.target.value)}
+            />
+          </Field>
           <Field label="Domains">
             <Input
               value={state.form.domains}

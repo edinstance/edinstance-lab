@@ -23,6 +23,37 @@ func (s *Server) listEnvVars(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string][]EnvVarMetadata{"env": vars})
 }
 
+func (s *Server) getEnvVar(w http.ResponseWriter, r *http.Request) {
+	if s.secretCipher == nil {
+		writeError(w, http.StatusServiceUnavailable, "env encryption is not configured")
+		return
+	}
+	name := r.PathValue("variable")
+	if !envfile.ValidName(name) {
+		writeError(w, http.StatusBadRequest, "invalid environment variable name")
+		return
+	}
+	serviceID, ok := s.envServiceID(w, r)
+	if !ok {
+		return
+	}
+	encrypted, err := s.encryptedEnvVar(serviceID, name)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeError(w, http.StatusNotFound, "environment variable not found")
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "unable to load environment variable")
+		return
+	}
+	value, err := s.secretCipher.Decrypt(encrypted)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to decrypt environment variable")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"name": name, "value": value})
+}
+
 func (s *Server) putEnvVar(w http.ResponseWriter, r *http.Request) {
 	if s.secretCipher == nil {
 		writeError(w, http.StatusServiceUnavailable, "env encryption is not configured")

@@ -9,6 +9,7 @@ export interface AppForm {
   image: string;
   port: string;
   replicas: string;
+  healthPath: string;
   domains: string;
   envContent: string;
 }

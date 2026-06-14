@@ -6,11 +6,14 @@ import {
   createDatabase,
   deleteApp,
   deleteEnvVar,
+  getEnvVar,
   getSession,
   listApps,
   listDatabases,
   listEnvVars,
+  redeployApp,
   setEnvVar,
+  updateAppHealthPath,
   uploadEnvFile,
 } from "../../platform/api";
 import {
@@ -34,6 +37,7 @@ const initialAppForm: AppForm = {
   image: "",
   port: "3000",
   replicas: "3",
+  healthPath: "/health",
   domains: "",
   envContent: "",
 };
@@ -121,16 +125,20 @@ export function useManageController() {
       const image = form.image.trim();
       const port = Number(form.port);
       const replicas = Number(form.replicas);
+      const healthPath = form.healthPath.trim();
       if (!name || !image) throw new Error("Name and image are required");
       if (!Number.isInteger(port) || port < 1 || port > 65535)
         throw new Error("Port must be a whole number between 1 and 65535");
       if (!Number.isInteger(replicas) || replicas < 1 || replicas > 20)
         throw new Error("Replicas must be a whole number between 1 and 20");
+      if (!healthPath.startsWith("/") || /\s/.test(healthPath))
+        throw new Error("Health path must start with / and contain no whitespace");
       const app = await createApp({
         name,
         image,
         port,
         replicas,
+        healthPath,
         domains: form.domains
           .split(",")
           .map((item) => item.trim())
@@ -222,6 +230,21 @@ export function useManageController() {
       await refreshTopology();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to delete app");
+    } finally {
+      setBusyApp(null);
+    }
+  }
+
+  async function redeploy(app: PlatformApp) {
+    setBusyApp(app.name);
+    setError(null);
+    setNotice(null);
+    try {
+      await redeployApp(app.name);
+      setNotice(`${app.name} redeploy requested`);
+      await refreshTopology();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to redeploy app");
     } finally {
       setBusyApp(null);
     }
@@ -353,6 +376,61 @@ export function useManageController() {
     }
   }
 
+  async function revealEnvVar(app: PlatformApp, name: string) {
+    setError(null);
+    try {
+      return await getEnvVar(app.name, name);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Unable to reveal environment variable",
+      );
+      return null;
+    }
+  }
+
+  async function saveEnvChanges(app: PlatformApp, changes: Record<string, string>) {
+    const entries = Object.entries(changes);
+    if (!entries.length) return false;
+    setBusyApp(app.name);
+    setError(null);
+    setNotice(null);
+    try {
+      await Promise.all(
+        entries.map(([name, value]) => setEnvVar(app.name, name, value)),
+      );
+      await redeployApp(app.name);
+      setNotice(
+        `${entries.length} environment ${entries.length === 1 ? "variable" : "variables"} saved; ${app.name} redeploy requested`,
+      );
+      await refreshTopology();
+      return true;
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Unable to save environment changes",
+      );
+      return false;
+    } finally {
+      setBusyApp(null);
+    }
+  }
+
+  async function saveHealthPath(app: PlatformApp, healthPath: string) {
+    setBusyApp(app.name);
+    setError(null);
+    setNotice(null);
+    try {
+      await updateAppHealthPath(app.name, healthPath.trim());
+      setNotice(`${app.name} health route updated`);
+      await refreshTopology();
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to update health route");
+      return false;
+    } finally {
+      setBusyApp(null);
+    }
+  }
+
   const state: ManageState = {
     apps,
     databases,
@@ -379,10 +457,14 @@ export function useManageController() {
     createAppFromForm,
     createDatabaseFromForm,
     removeApp,
+    redeploy,
     importEnv,
     importEnvContent,
     toggleEnvironment,
     saveEnvVar,
     removeEnvVar,
+    revealEnvVar,
+    saveEnvChanges,
+    saveHealthPath,
   };
 }

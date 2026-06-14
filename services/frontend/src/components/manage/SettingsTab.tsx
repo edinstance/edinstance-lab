@@ -1,15 +1,24 @@
+import { useEffect, useState } from "react";
+
 import { Button } from "../ui/Button";
+import { Field } from "../ui/Field";
+import { Input } from "../ui/Input";
 import type { PlatformApp } from "../../topology/topology";
 
 export function SettingsTab({
   app,
   busy,
   onDelete,
+  onSaveHealthPath,
 }: {
   app: PlatformApp;
   busy: boolean;
   onDelete: () => void;
+  onSaveHealthPath: (path: string) => Promise<boolean>;
 }) {
+  const [healthPath, setHealthPath] = useState(app.healthPath);
+  useEffect(() => setHealthPath(app.healthPath), [app.healthPath]);
+
   return (
     <div className="grid gap-6">
       <section className="rounded-xl border border-[#342e40] p-5">
@@ -22,6 +31,20 @@ export function SettingsTab({
           <dt className="text-[#91899f]">Replicas</dt>
           <dd className="m-0">{app.replicas}</dd>
         </dl>
+        <div className="mt-5 flex items-end gap-3">
+          <Field className="flex-1" label="Health route">
+            <Input
+              value={healthPath}
+              onChange={(event) => setHealthPath(event.target.value)}
+            />
+          </Field>
+          <Button
+            disabled={busy || healthPath === app.healthPath}
+            onClick={() => void onSaveHealthPath(healthPath)}
+          >
+            Save
+          </Button>
+        </div>
       </section>
 
       <section className="rounded-xl border border-[#6b3038] bg-[#241116] p-5">

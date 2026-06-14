@@ -25,12 +25,13 @@ type Reconciler struct {
 }
 
 type AppSpec struct {
-	Name     string
-	Image    string
-	Port     int
-	Replicas int
-	Domains  []string
-	Env      map[string]string
+	Name       string
+	Image      string
+	Port       int
+	HealthPath string
+	Replicas   int
+	Domains    []string
+	Env        map[string]string
 }
 
 type PostgresSpec struct {

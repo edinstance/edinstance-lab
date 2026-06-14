@@ -78,7 +78,11 @@ func (r *Reconciler) processNext(ctx context.Context) (bool, error) {
 		update services
 		set reconciled_generation = $2,
 			reconcile_state = case when desired_generation = $2 then 'ready' else 'pending' end,
-			status = case when desired_generation = $2 then 'reconciling' else status end,
+			status = case
+				when desired_generation <> $2 then status
+				when reconciled_generation <> $2 then 'reconciling'
+				else status
+			end,
 			reconcile_attempts = case when desired_generation = $2 then 0 else reconcile_attempts end,
 			next_reconcile_at = case when desired_generation = $2 then now() + interval '1 minute' else now() end,
 			last_reconcile_error = null, reconcile_lease_until = null, updated_at = now()

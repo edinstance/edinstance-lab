@@ -14,6 +14,7 @@ func (s *Server) listAppsFromDB() ([]App, error) {
 			name,
 			image,
 			port,
+			health_path,
 			replicas,
 			status,
 			coalesce(last_reconcile_error, ''),
@@ -31,7 +32,7 @@ func (s *Server) listAppsFromDB() ([]App, error) {
 	for rows.Next() {
 		var app App
 		var updatedAt time.Time
-		if err := rows.Scan(&app.Name, &app.Image, &app.Port, &app.Replicas, &app.Status, &app.FailureReason, &updatedAt); err != nil {
+		if err := rows.Scan(&app.Name, &app.Image, &app.Port, &app.HealthPath, &app.Replicas, &app.Status, &app.FailureReason, &updatedAt); err != nil {
 			return nil, err
 		}
 		app.Ready = app.Status == "ready"
@@ -57,10 +58,10 @@ func (s *Server) insertApp(req CreateAppRequest) (App, error) {
 	serviceID := uuid.NewString()
 	var updatedAt time.Time
 	if err := tx.QueryRow(`
-		insert into services (id, name, image, port, replicas, status, reconcile_state, next_reconcile_at)
-		values ($1::uuid, $2, $3, $4, $5, 'pending', 'pending', now())
+		insert into services (id, name, image, port, replicas, health_path, status, reconcile_state, next_reconcile_at)
+		values ($1::uuid, $2, $3, $4, $5, $6, 'pending', 'pending', now())
 		returning updated_at
-	`, serviceID, req.Name, req.Image, req.Port, req.Replicas).Scan(&updatedAt); err != nil {
+	`, serviceID, req.Name, req.Image, req.Port, req.Replicas, req.HealthPath).Scan(&updatedAt); err != nil {
 		return App{}, fmt.Errorf("insert service: %w", err)
 	}
 
@@ -86,14 +87,15 @@ func (s *Server) insertApp(req CreateAppRequest) (App, error) {
 		})
 	}
 	return App{
-		Name:      req.Name,
-		Image:     req.Image,
-		Status:    "pending",
-		Ready:     false,
-		Replicas:  req.Replicas,
-		Port:      req.Port,
-		Domains:   domains,
-		UpdatedAt: updatedAt.UTC().Format(time.RFC3339),
+		Name:       req.Name,
+		Image:      req.Image,
+		Status:     "pending",
+		Ready:      false,
+		Replicas:   req.Replicas,
+		Port:       req.Port,
+		HealthPath: req.HealthPath,
+		Domains:    domains,
+		UpdatedAt:  updatedAt.UTC().Format(time.RFC3339),
 	}, nil
 }
 
@@ -105,13 +107,14 @@ func (s *Server) getAppFromDB(name string) (App, error) {
 			name,
 			image,
 			port,
+			health_path,
 			replicas,
 			status,
 			coalesce(last_reconcile_error, ''),
 			updated_at
 		from services
 		where name = $1 and deletion_requested_at is null
-	`, name).Scan(&app.Name, &app.Image, &app.Port, &app.Replicas, &app.Status, &app.FailureReason, &updatedAt)
+	`, name).Scan(&app.Name, &app.Image, &app.Port, &app.HealthPath, &app.Replicas, &app.Status, &app.FailureReason, &updatedAt)
 	if err != nil {
 		return App{}, err
 	}
@@ -122,6 +125,27 @@ func (s *Server) getAppFromDB(name string) (App, error) {
 		return App{}, err
 	}
 	return app, nil
+}
+
+func (s *Server) updateAppHealthPath(name, healthPath string) (App, error) {
+	result, err := s.db.Exec(`
+		update services
+		set health_path = $2, desired_generation = desired_generation + 1,
+			reconcile_state = 'pending', status = 'pending', reconcile_attempts = 0,
+			next_reconcile_at = now(), last_reconcile_error = null, updated_at = now()
+		where name = $1 and deletion_requested_at is null
+	`, name, healthPath)
+	if err != nil {
+		return App{}, err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return App{}, err
+	}
+	if rows == 0 {
+		return App{}, sql.ErrNoRows
+	}
+	return s.getAppFromDB(name)
 }
 
 func (s *Server) listDomainsForApp(name string) ([]Domain, error) {
@@ -221,6 +245,16 @@ func (s *Server) listEnvVarMetadata(serviceID string) ([]EnvVarMetadata, error) 
 		vars = append(vars, variable)
 	}
 	return vars, rows.Err()
+}
+
+func (s *Server) encryptedEnvVar(serviceID, name string) (string, error) {
+	var encrypted string
+	err := s.db.QueryRow(`
+		select value_encrypted
+		from service_env_vars
+		where service_id = $1::uuid and name = $2
+	`, serviceID, name).Scan(&encrypted)
+	return encrypted, err
 }
 
 func (s *Server) upsertEnvVar(serviceID, name, encryptedValue string) error {

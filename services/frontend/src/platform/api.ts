@@ -7,13 +7,16 @@ import {
   mockDeleteEnvVar,
   mockGetAppLogs,
   mockGetAppMetrics,
+  mockGetEnvVar,
   mockGetSession,
   mockListApps,
   mockListDatabases,
   mockListEnvVars,
   mockLogin,
   mockLogout,
+  mockRedeployApp,
   mockSetEnvVar,
+  mockUpdateAppHealthPath,
   mockUploadEnvFile,
 } from "./mock-data";
 import type { PlatformApp } from "../topology/topology";
@@ -28,7 +31,27 @@ export interface CreateAppInput {
   image: string;
   port: number;
   replicas?: number;
+  healthPath?: string;
   domains?: Array<string>;
+}
+
+export async function updateAppHealthPath(
+  name: string,
+  healthPath: string,
+): Promise<PlatformApp> {
+  if (env.mockPlatform) return mockUpdateAppHealthPath(name, healthPath);
+  const response = await apiFetch(
+    `${apiBase}/api/apps/${encodeURIComponent(name)}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+      body: JSON.stringify({ healthPath }),
+    },
+  );
+  if (!response.ok) {
+    throw new Error(await readError(response, "Unable to update health path"));
+  }
+  return response.json() as Promise<PlatformApp>;
 }
 
 export interface EnvUploadResult {
@@ -197,6 +220,21 @@ export async function deleteApp(name: string): Promise<void> {
   }
 }
 
+export async function redeployApp(name: string): Promise<void> {
+  if (env.mockPlatform) return mockRedeployApp(name);
+
+  const response = await apiFetch(
+    `${apiBase}/api/apps/${encodeURIComponent(name)}/redeploy`,
+    {
+      method: "POST",
+      headers: await authHeaders(),
+    },
+  );
+  if (!response.ok) {
+    throw new Error(await readError(response, "Unable to redeploy app"));
+  }
+}
+
 export async function getAppMetrics(
   name: string,
   hours: number,
@@ -289,7 +327,7 @@ export async function setEnvVar(
   name: string,
   value: string,
 ): Promise<EnvVariable> {
-  if (env.mockPlatform) return mockSetEnvVar(app, name);
+  if (env.mockPlatform) return mockSetEnvVar(app, name, value);
 
   const response = await apiFetch(
     `${apiBase}/api/apps/${encodeURIComponent(app)}/env/${encodeURIComponent(name)}`,
@@ -304,6 +342,21 @@ export async function setEnvVar(
       await readError(response, "Unable to save environment variable"),
     );
   return response.json() as Promise<EnvVariable>;
+}
+
+export async function getEnvVar(app: string, name: string): Promise<string> {
+  if (env.mockPlatform) return mockGetEnvVar(app, name);
+
+  const response = await apiFetch(
+    `${apiBase}/api/apps/${encodeURIComponent(app)}/env/${encodeURIComponent(name)}`,
+    { headers: await authHeaders() },
+  );
+  if (!response.ok) {
+    throw new Error(
+      await readError(response, "Unable to reveal environment variable"),
+    );
+  }
+  return ((await response.json()) as { value: string }).value;
 }
 
 export async function deleteEnvVar(app: string, name: string): Promise<void> {

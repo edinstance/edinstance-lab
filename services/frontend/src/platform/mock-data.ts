@@ -20,6 +20,7 @@ let apps: Array<PlatformApp> = [
     ready: true,
     replicas: 3,
     port: 3000,
+    healthPath: "/health",
     domains: [
       {
         host: "storefront.local.edinstance.uk",
@@ -39,6 +40,7 @@ let apps: Array<PlatformApp> = [
     ready: true,
     replicas: 2,
     port: 8080,
+    healthPath: "/healthz",
     domains: [
       { host: "orders.local.edinstance.uk", scope: "local", status: "ready" },
     ],
@@ -53,6 +55,7 @@ let apps: Array<PlatformApp> = [
     ready: false,
     replicas: 2,
     port: 9090,
+    healthPath: "/health",
     domains: [],
     lastBuild: "42 minutes ago",
     source: "services/worker",
@@ -107,6 +110,7 @@ const envVars: Record<string, Array<EnvVariable>> = {
     { name: "STRIPE_WEBHOOK_SECRET", secret: true },
   ],
 };
+const envValues: Partial<Record<string, Record<string, string>>> = {};
 
 export function mockGetSession(): Session {
   return { authenticated: true, user: "local.mock@edinstance.uk" };
@@ -132,6 +136,7 @@ export function mockCreateApp(input: CreateAppInput): PlatformApp {
     ready: true,
     replicas: input.replicas ?? 1,
     port: input.port,
+    healthPath: input.healthPath ?? "/health",
     domains: (input.domains ?? []).map((host) => ({
       host,
       scope: host.includes("local") ? "local" : "public",
@@ -145,8 +150,32 @@ export function mockCreateApp(input: CreateAppInput): PlatformApp {
   return app;
 }
 
+export function mockUpdateAppHealthPath(
+  name: string,
+  healthPath: string,
+): PlatformApp {
+  const app = apps.find((item) => item.name === name);
+  if (!app) throw new Error("App not found");
+  const updated = { ...app, healthPath, status: "reconciling", ready: false };
+  apps = apps.map((item) => (item.name === name ? updated : item));
+  return updated;
+}
+
 export function mockDeleteApp(name: string): void {
   apps = apps.filter((app) => app.name !== name);
+}
+
+export function mockRedeployApp(name: string): void {
+  apps = apps.map((app) =>
+    app.name === name
+      ? {
+          ...app,
+          status: "reconciling",
+          failureReason: undefined,
+          updatedAt: new Date().toISOString(),
+        }
+      : app,
+  );
 }
 
 export function mockGetAppMetrics(name: string, hours: number): AppMetrics {
@@ -191,10 +220,15 @@ export function mockListEnvVars(name: string): Array<EnvVariable> {
   return [...(envVars[name] ?? [])];
 }
 
-export function mockSetEnvVar(app: string, name: string): EnvVariable {
+export function mockSetEnvVar(app: string, name: string, value = ""): EnvVariable {
   const variable = { name, secret: true };
   envVars[app] = mergeEnv(envVars[app] ?? [], [variable]);
+  envValues[app] = { ...(envValues[app] ?? {}), [name]: value };
   return variable;
+}
+
+export function mockGetEnvVar(app: string, name: string): string {
+  return envValues[app]?.[name] ?? `mock-${name.toLowerCase()}`;
 }
 
 export function mockDeleteEnvVar(app: string, name: string): void {

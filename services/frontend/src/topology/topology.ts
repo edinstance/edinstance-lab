@@ -10,6 +10,7 @@ export interface PlatformApp {
   ready: boolean;
   replicas: number;
   port: number;
+  healthPath: string;
   domains: Array<{
     host: string;
     scope: "local" | "public";

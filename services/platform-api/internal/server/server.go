@@ -48,11 +48,14 @@ func New(cfg config.Config, logger *slog.Logger, db *platformdb.DB, secretCipher
 	mux.HandleFunc("GET /api/apps", s.withAuth(s.listApps))
 	mux.HandleFunc("POST /api/apps", s.withAuth(s.createApp))
 	mux.HandleFunc("GET /api/apps/{name}", s.withAuth(s.getApp))
+	mux.HandleFunc("PATCH /api/apps/{name}", s.withAuth(s.updateApp))
 	mux.HandleFunc("GET /api/apps/{name}/metrics", s.withAuth(s.getAppMetrics))
 	mux.HandleFunc("GET /api/apps/{name}/logs", s.withAuth(s.getAppLogs))
+	mux.HandleFunc("POST /api/apps/{name}/redeploy", s.withAuth(s.redeployApp))
 	mux.HandleFunc("DELETE /api/apps/{name}", s.withAuth(s.deleteApp))
 	mux.HandleFunc("POST /api/apps/{name}/env-file", s.withAuth(s.uploadEnvFile))
 	mux.HandleFunc("GET /api/apps/{name}/env", s.withAuth(s.listEnvVars))
+	mux.HandleFunc("GET /api/apps/{name}/env/{variable}", s.withAuth(s.getEnvVar))
 	mux.HandleFunc("PUT /api/apps/{name}/env/{variable}", s.withAuth(s.putEnvVar))
 	mux.HandleFunc("DELETE /api/apps/{name}/env/{variable}", s.withAuth(s.deleteEnvVar))
 	mux.HandleFunc("GET /api/databases", s.withAuth(s.listPostgresDatabases))
@@ -97,6 +100,9 @@ func (s *Server) createApp(w http.ResponseWriter, r *http.Request) {
 	if req.Replicas == 0 {
 		req.Replicas = 3
 	}
+	if req.HealthPath == "" {
+		req.HealthPath = "/health"
+	}
 
 	app, err := s.insertApp(req)
 	if err != nil {
@@ -110,6 +116,29 @@ func (s *Server) createApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, app)
+}
+
+func (s *Server) updateApp(w http.ResponseWriter, r *http.Request) {
+	var req UpdateAppRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	if err := validateHealthPath(req.HealthPath); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	app, err := s.updateAppHealthPath(r.PathValue("name"), req.HealthPath)
+	if errors.Is(err, sql.ErrNoRows) {
+		writeError(w, http.StatusNotFound, "app not found")
+		return
+	}
+	if err != nil {
+		s.logger.Error("failed to update app", "name", r.PathValue("name"), "error", err)
+		writeError(w, http.StatusInternalServerError, "unable to update app")
+		return
+	}
+	writeJSON(w, http.StatusOK, app)
 }
 
 func (s *Server) getApp(w http.ResponseWriter, r *http.Request) {
@@ -180,6 +209,37 @@ func (s *Server) deleteApp(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusAccepted, map[string]string{"status": "deleting"})
 }
 
+func (s *Server) redeployApp(w http.ResponseWriter, r *http.Request) {
+	if s.db == nil || s.reconciler == nil {
+		writeError(w, http.StatusServiceUnavailable, "app reconciliation is not configured")
+		return
+	}
+
+	name := r.PathValue("name")
+	result, err := s.db.Exec(`
+		update services
+		set reconcile_state = 'pending', status = 'pending', reconcile_attempts = 0,
+			next_reconcile_at = now(), last_reconcile_error = null,
+			reconcile_lease_until = null, updated_at = now()
+		where name = $1 and deletion_requested_at is null
+	`, name)
+	if err != nil {
+		s.logger.Error("failed to redeploy app", "name", name, "error", err)
+		writeError(w, http.StatusInternalServerError, "unable to redeploy app")
+		return
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to redeploy app")
+		return
+	}
+	if rows == 0 {
+		writeError(w, http.StatusNotFound, "app not found")
+		return
+	}
+	writeJSON(w, http.StatusAccepted, map[string]string{"status": "pending"})
+}
+
 func (s *Server) uploadEnvFile(w http.ResponseWriter, r *http.Request) {
 	if s.db == nil {
 		writeError(w, http.StatusServiceUnavailable, "database-backed env storage is not configured")
@@ -245,10 +305,22 @@ func validateCreateAppRequest(req CreateAppRequest) error {
 	if req.Replicas < 0 || req.Replicas > 20 {
 		return errors.New("replicas must be between 0 and 20")
 	}
+	if req.HealthPath != "" {
+		if err := validateHealthPath(req.HealthPath); err != nil {
+			return err
+		}
+	}
 	for _, hostname := range req.Domains {
 		if strings.TrimSpace(hostname) == "" {
 			return errors.New("domains must not contain blank hostnames")
 		}
+	}
+	return nil
+}
+
+func validateHealthPath(path string) error {
+	if !strings.HasPrefix(path, "/") || strings.ContainsAny(path, " \t\r\n") {
+		return errors.New("health path must start with / and contain no whitespace")
 	}
 	return nil
 }

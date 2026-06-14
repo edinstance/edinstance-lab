@@ -7,6 +7,7 @@ type App struct {
 	Ready         bool     `json:"ready"`
 	Replicas      int      `json:"replicas"`
 	Port          int      `json:"port"`
+	HealthPath    string   `json:"healthPath"`
 	Domains       []Domain `json:"domains"`
 	LastBuild     string   `json:"lastBuild"`
 	Source        string   `json:"source"`
@@ -26,11 +27,16 @@ type EnvVarMetadata struct {
 }
 
 type CreateAppRequest struct {
-	Name     string   `json:"name"`
-	Image    string   `json:"image"`
-	Port     int      `json:"port"`
-	Replicas int      `json:"replicas,omitempty"`
-	Domains  []string `json:"domains,omitempty"`
+	Name       string   `json:"name"`
+	Image      string   `json:"image"`
+	Port       int      `json:"port"`
+	Replicas   int      `json:"replicas,omitempty"`
+	Domains    []string `json:"domains,omitempty"`
+	HealthPath string   `json:"healthPath,omitempty"`
+}
+
+type UpdateAppRequest struct {
+	HealthPath string `json:"healthPath"`
 }
 
 type PostgresDatabase struct {

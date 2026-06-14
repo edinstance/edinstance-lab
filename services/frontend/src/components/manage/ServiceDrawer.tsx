@@ -160,7 +160,12 @@ function ServiceTabContent({
   switch (tab) {
     case "deployments":
       return (
-        <DeploymentsTab app={app} onViewLogs={() => onTabChange("logs")} />
+        <DeploymentsTab
+          app={app}
+          busy={busy}
+          onRedeploy={() => void controller.redeploy(app)}
+          onViewLogs={() => onTabChange("logs")}
+        />
       );
     case "variables":
       return (
@@ -177,6 +182,13 @@ function ServiceTabContent({
     case "logs":
       return <LogsTab app={app} />;
     case "settings":
-      return <SettingsTab app={app} busy={busy} onDelete={onDelete} />;
+      return (
+        <SettingsTab
+          app={app}
+          busy={busy}
+          onDelete={onDelete}
+          onSaveHealthPath={(path) => controller.saveHealthPath(app, path)}
+        />
+      );
   }
 }

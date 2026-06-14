@@ -8,10 +8,10 @@ import (
 func (r *Reconciler) loadAppSpec(ctx context.Context, name string) (AppSpec, error) {
 	var spec AppSpec
 	err := r.db.QueryRowContext(ctx, `
-		select name, image, port, replicas
+		select name, image, port, replicas, health_path
 		from services
 		where name = $1
-	`, name).Scan(&spec.Name, &spec.Image, &spec.Port, &spec.Replicas)
+	`, name).Scan(&spec.Name, &spec.Image, &spec.Port, &spec.Replicas, &spec.HealthPath)
 	if err != nil {
 		return AppSpec{}, fmt.Errorf("load app %s: %w", name, err)
 	}

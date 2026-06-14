@@ -52,8 +52,8 @@ func (r *Reconciler) deployment(spec AppSpec) *unstructured.Unstructured {
 						}},
 						"env":            env,
 						"resources":      containerResources(),
-						"readinessProbe": readinessProbe(),
-						"livenessProbe":  livenessProbe(),
+						"readinessProbe": readinessProbe(spec.HealthPath),
+						"livenessProbe":  livenessProbe(spec.HealthPath),
 						"securityContext": map[string]any{
 							"allowPrivilegeEscalation": false,
 							"readOnlyRootFilesystem":   true,
@@ -248,17 +248,17 @@ func podAntiAffinity(labels map[string]any) map[string]any {
 	}
 }
 
-func readinessProbe() map[string]any {
+func readinessProbe(path string) map[string]any {
 	return map[string]any{
-		"httpGet":             map[string]any{"path": "/healthz", "port": "http"},
+		"httpGet":             map[string]any{"path": path, "port": "http"},
 		"initialDelaySeconds": int64(5),
 		"periodSeconds":       int64(10),
 	}
 }
 
-func livenessProbe() map[string]any {
+func livenessProbe(path string) map[string]any {
 	return map[string]any{
-		"httpGet":             map[string]any{"path": "/healthz", "port": "http"},
+		"httpGet":             map[string]any{"path": path, "port": "http"},
 		"initialDelaySeconds": int64(20),
 		"periodSeconds":       int64(20),
 	}

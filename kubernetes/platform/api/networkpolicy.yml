@@ -108,6 +108,25 @@ spec:
         - protocol: TCP
           port: 53
 ---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-platform-api-kubernetes-api-egress
+  namespace: platform-system
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: platform-api
+  egress:
+    - toEntities:
+        - kube-apiserver
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+            - port: "6443"
+              protocol: TCP
+---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:

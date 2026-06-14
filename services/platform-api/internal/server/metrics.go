@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -32,6 +33,12 @@ func (s *Server) getAppMetrics(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid app name")
 		return
 	}
+	namespace := queryValue(r, "namespace", s.cfg.AppsNamespace)
+	app := queryValue(r, "app", name)
+	if !appNamePattern.MatchString(namespace) || !appNamePattern.MatchString(app) {
+		writeError(w, http.StatusBadRequest, "invalid metrics selector")
+		return
+	}
 	hours := 6
 	if parsed, err := strconv.Atoi(r.URL.Query().Get("hours")); err == nil && (parsed == 1 || parsed == 6 || parsed == 24 || parsed == 168) {
 		hours = parsed
@@ -39,9 +46,11 @@ func (s *Server) getAppMetrics(w http.ResponseWriter, r *http.Request) {
 	end := time.Now()
 	start := end.Add(-time.Duration(hours) * time.Hour)
 	step := max(30, hours*60)
+	namespace = escapePrometheusLabel(namespace)
+	app = escapePrometheusLabel(app)
 	queries := map[string]string{
-		"cpu":    fmt.Sprintf(`sum by (pod) (rate(container_cpu_usage_seconds_total{namespace="apps",pod=~"%s-.*",container="app"}[5m]))`, name),
-		"memory": fmt.Sprintf(`sum by (pod) (container_memory_working_set_bytes{namespace="apps",pod=~"%s-.*",container="app"})`, name),
+		"cpu":    fmt.Sprintf(`sum by (pod) (rate(container_cpu_usage_seconds_total{namespace="%s",pod=~"%s-.*",container!="",container!="POD"}[5m]))`, namespace, app),
+		"memory": fmt.Sprintf(`sum by (pod) (container_memory_working_set_bytes{namespace="%s",pod=~"%s-.*",container!="",container!="POD"})`, namespace, app),
 	}
 	result := make(map[string][]metricSeries, len(queries))
 	for key, query := range queries {
@@ -100,4 +109,16 @@ func (s *Server) queryPrometheus(r *http.Request, query string, start, end time.
 		series = append(series, metricSeries{Pod: item.Metric["pod"], Values: points})
 	}
 	return series, nil
+}
+
+func queryValue(r *http.Request, key, fallback string) string {
+	value := strings.TrimSpace(r.URL.Query().Get(key))
+	if value == "" {
+		return fallback
+	}
+	return value
+}
+
+func escapePrometheusLabel(value string) string {
+	return strings.ReplaceAll(value, `\`, `\\`)
 }

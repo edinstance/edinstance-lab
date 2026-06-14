@@ -34,6 +34,14 @@ export interface AppMetrics {
   rangeHours: number;
   series: { cpu: Array<MetricSeries>; memory: Array<MetricSeries> };
 }
+export interface LogEntry {
+  timestamp: string;
+  namespace: string;
+  pod: string;
+  container: string;
+  level?: string;
+  message: string;
+}
 
 export interface PostgresDatabase {
   name: string;
@@ -162,13 +170,18 @@ export async function deleteApp(name: string): Promise<void> {
 export async function getAppMetrics(
   name: string,
   hours: number,
+  options: { namespace?: string; app?: string } = {},
 ): Promise<AppMetrics> {
   if (!Number.isFinite(hours) || hours <= 0) {
     throw new Error("Hours must be a positive number");
   }
 
+  const params = new URLSearchParams({ hours: String(hours) });
+  if (options.namespace) params.set("namespace", options.namespace);
+  if (options.app) params.set("app", options.app);
+
   const response = await apiFetch(
-    `${apiBase}/api/apps/${encodeURIComponent(name)}/metrics?hours=${hours}`,
+    `${apiBase}/api/apps/${encodeURIComponent(name)}/metrics?${params}`,
     { headers: await authHeaders() },
   );
 
@@ -179,6 +192,28 @@ export async function getAppMetrics(
   }
 
   return response.json() as Promise<AppMetrics>;
+}
+
+export async function getAppLogs(
+  name: string,
+  options: { namespace?: string; app?: string; limit?: number } = {},
+): Promise<Array<LogEntry>> {
+  const params = new URLSearchParams();
+  if (options.namespace) params.set("namespace", options.namespace);
+  if (options.app) params.set("app", options.app);
+  if (options.limit) params.set("limit", String(options.limit));
+
+  const response = await apiFetch(
+    `${apiBase}/api/apps/${encodeURIComponent(name)}/logs?${params}`,
+    { headers: await authHeaders() },
+  );
+
+  if (!response.ok) {
+    throw new Error(await readError(response, "Unable to load service logs"));
+  }
+
+  const body = (await response.json()) as { entries: Array<LogEntry> };
+  return body.entries;
 }
 
 export async function uploadEnvFile(

@@ -49,6 +49,7 @@ func New(cfg config.Config, logger *slog.Logger, db *platformdb.DB, secretCipher
 	mux.HandleFunc("POST /api/apps", s.withAuth(s.createApp))
 	mux.HandleFunc("GET /api/apps/{name}", s.withAuth(s.getApp))
 	mux.HandleFunc("GET /api/apps/{name}/metrics", s.withAuth(s.getAppMetrics))
+	mux.HandleFunc("GET /api/apps/{name}/logs", s.withAuth(s.getAppLogs))
 	mux.HandleFunc("DELETE /api/apps/{name}", s.withAuth(s.deleteApp))
 	mux.HandleFunc("POST /api/apps/{name}/env-file", s.withAuth(s.uploadEnvFile))
 	mux.HandleFunc("GET /api/apps/{name}/env", s.withAuth(s.listEnvVars))

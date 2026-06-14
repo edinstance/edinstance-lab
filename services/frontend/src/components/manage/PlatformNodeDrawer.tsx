@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-import {
-  grafanaLogsFor,
-  grafanaPlatformDashboard,
-} from "./grafana";
+import { getAppLogs, getAppMetrics } from "../../platform/api";
+import { grafanaLogsFor, grafanaPlatformDashboard } from "./grafana";
+import { LogStream } from "./LogStream";
+import { MetricChart } from "./MetricChart";
 import { ServiceStat } from "./ServiceStat";
+import type { AppMetrics, LogEntry } from "../../platform/api";
 import type { TopologyNodeData } from "../../topology/types";
 
 interface PlatformNodeDrawerProps {
@@ -108,7 +109,9 @@ function PlatformOverview({ node }: { node: TopologyNodeData }) {
         />
         <ServiceStat
           label="Workload"
-          value={observability?.workloadName ?? observability?.app ?? node.title}
+          value={
+            observability?.workloadName ?? observability?.app ?? node.title
+          }
         />
       </div>
 
@@ -119,50 +122,150 @@ function PlatformOverview({ node }: { node: TopologyNodeData }) {
 
 function PlatformMetrics({ node }: { node: TopologyNodeData }) {
   const observability = node.observability;
+  const [hours, setHours] = useState(6);
+  const [metrics, setMetrics] = useState<AppMetrics | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  if (!observability) {
-    return <Unavailable text="No metrics target is configured for this node." />;
-  }
+  useEffect(() => {
+    if (!observability) return;
+
+    let cancelled = false;
+    setError(null);
+
+    void getAppMetrics(observability.app, hours, {
+      namespace: observability.namespace,
+      app: observability.app,
+    })
+      .then((value) => {
+        if (!cancelled) setMetrics(value);
+      })
+      .catch((caught: unknown) => {
+        if (cancelled) return;
+        setError(
+          caught instanceof Error ? caught.message : "Unable to load metrics",
+        );
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hours, observability]);
+
+  if (!observability)
+    return (
+      <Unavailable text="No metrics target is configured for this node." />
+    );
 
   return (
     <div className="grid gap-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex overflow-hidden rounded-lg border border-[#40394b]">
+          {[1, 6, 24, 168].map((value) => (
+            <button
+              className={`min-h-10 border-r border-[#40394b] px-4 text-sm last:border-0 ${
+                hours === value
+                  ? "bg-[#31243e] text-[#c084fc]"
+                  : "bg-[#191620] text-[#91899f] hover:text-white"
+              }`}
+              key={value}
+              onClick={() => setHours(value)}
+              type="button"
+            >
+              {value === 168 ? "7d" : `${value}h`}
+            </button>
+          ))}
+        </div>
+
+        <a
+          className="secondary-action"
+          href={grafanaPlatformDashboard(observability)}
+          rel="noreferrer"
+          target="_blank"
+        >
+          Open Grafana ↗
+        </a>
+      </div>
+
       <div className="grid grid-cols-3 gap-3 max-[700px]:grid-cols-1">
         <ServiceStat label="Datasource" value="Prometheus" />
         <ServiceStat label="Namespace" value={observability.namespace} />
         <ServiceStat label="Selector" value={observability.app} />
       </div>
 
-      <ActionPanel
-        body="Open the platform workload dashboard or a prefilled Prometheus Explore query for CPU and memory by pod."
-        cta="Open metrics in Grafana ↗"
-        href={grafanaPlatformDashboard(observability)}
-        title="Platform metrics"
-      />
+      {error ? (
+        <Unavailable text={error} />
+      ) : (
+        <div className="grid grid-cols-2 gap-5 max-[760px]:grid-cols-1">
+          <MetricChart
+            label="CPU"
+            series={metrics?.series.cpu ?? []}
+            unit="vCPU"
+          />
+          <MetricChart
+            label="Memory"
+            series={metrics?.series.memory ?? []}
+            unit="bytes"
+          />
+        </div>
+      )}
     </div>
   );
 }
 
 function PlatformLogs({ node }: { node: TopologyNodeData }) {
   const observability = node.observability;
+  const [entries, setEntries] = useState<Array<LogEntry>>([]);
+  const [error, setError] = useState<string | null>(null);
 
-  if (!observability) {
+  useEffect(() => {
+    if (!observability) return;
+
+    let cancelled = false;
+    setError(null);
+
+    void getAppLogs(observability.app, {
+      namespace: observability.namespace,
+      app: observability.app,
+      limit: 150,
+    })
+      .then((value) => {
+        if (!cancelled) setEntries(value);
+      })
+      .catch((caught: unknown) => {
+        if (cancelled) return;
+        setError(
+          caught instanceof Error ? caught.message : "Unable to load logs",
+        );
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [observability]);
+
+  if (!observability)
     return <Unavailable text="No log target is configured for this node." />;
-  }
 
   return (
     <div className="grid gap-5">
-      <div className="grid grid-cols-3 gap-3 max-[700px]:grid-cols-1">
-        <ServiceStat label="Datasource" value="Loki" />
-        <ServiceStat label="Namespace" value={observability.namespace} />
-        <ServiceStat label="Label" value={`app=${observability.app}`} />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="grid flex-1 grid-cols-3 gap-3 max-[700px]:grid-cols-1">
+          <ServiceStat label="Datasource" value="Loki" />
+          <ServiceStat label="Namespace" value={observability.namespace} />
+          <ServiceStat label="Label" value={`app=${observability.app}`} />
+        </div>
+
+        <a
+          className="secondary-action"
+          href={grafanaLogsFor(observability)}
+          rel="noreferrer"
+          target="_blank"
+        >
+          Open Grafana ↗
+        </a>
       </div>
 
-      <ActionPanel
-        body="Open stdout and stderr collected from this platform workload in Grafana Explore."
-        cta="Open logs in Grafana ↗"
-        href={grafanaLogsFor(observability)}
-        title="Platform logs"
-      />
+      {error ? <Unavailable text={error} /> : <LogStream entries={entries} />}
     </div>
   );
 }
@@ -198,11 +301,7 @@ function PlatformSettings({ node }: { node: TopologyNodeData }) {
   );
 }
 
-function FactList({
-  facts,
-}: {
-  facts: Record<string, string | undefined>;
-}) {
+function FactList({ facts }: { facts: Record<string, string | undefined> }) {
   return (
     <dl className="grid gap-3">
       {Object.entries(facts).map(([label, value]) =>
@@ -219,33 +318,6 @@ function FactList({
         ) : null,
       )}
     </dl>
-  );
-}
-
-function ActionPanel({
-  body,
-  cta,
-  href,
-  title,
-}: {
-  body: string;
-  cta: string;
-  href: string;
-  title: string;
-}) {
-  return (
-    <div className="grid min-h-[420px] place-items-center rounded-xl border border-[#352f41] bg-[radial-gradient(circle_at_50%_25%,rgba(139,92,246,.12),transparent_45%),#110f18] p-10 text-center">
-      <div>
-        <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-2xl border border-[#514563] bg-[#211b2d] text-2xl text-[#c084fc]">
-          ◈
-        </div>
-        <h3 className="m-0 text-2xl font-semibold">{title}</h3>
-        <p className="mx-auto mt-2 mb-6 max-w-md text-[#91899f]">{body}</p>
-        <a className="primary-action" href={href} rel="noreferrer" target="_blank">
-          {cta}
-        </a>
-      </div>
-    </div>
   );
 }
 

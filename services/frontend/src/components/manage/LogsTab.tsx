@@ -1,36 +1,57 @@
+import { useEffect, useState } from "react";
+
+import { getAppLogs } from "../../platform/api";
+import { EmptyState } from "./EmptyState";
 import { grafanaLogs } from "./grafana";
+import { LogStream } from "./LogStream";
 import { ServiceStat } from "./ServiceStat";
 import type { PlatformApp } from "../../topology/topology";
+import type { LogEntry } from "../../platform/api";
 
 export function LogsTab({ app }: { app: PlatformApp }) {
+  const [entries, setEntries] = useState<Array<LogEntry>>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setError(null);
+
+    void getAppLogs(app.name, { limit: 150 })
+      .then((value) => {
+        if (!cancelled) setEntries(value);
+      })
+      .catch((caught: unknown) => {
+        if (cancelled) return;
+        setError(
+          caught instanceof Error ? caught.message : "Unable to load logs",
+        );
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [app.name]);
+
   return (
     <div className="grid gap-5">
-      <div className="grid grid-cols-3 gap-3 max-[700px]:grid-cols-1">
-        <ServiceStat label="Service" value={app.name} />
-        <ServiceStat label="Namespace" value="apps" />
-        <ServiceStat label="Replicas" value={String(app.replicas)} />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="grid flex-1 grid-cols-3 gap-3 max-[700px]:grid-cols-1">
+          <ServiceStat label="Service" value={app.name} />
+          <ServiceStat label="Namespace" value="apps" />
+          <ServiceStat label="Replicas" value={String(app.replicas)} />
+        </div>
+
+        <a
+          className="secondary-action"
+          href={grafanaLogs(app.name)}
+          rel="noreferrer"
+          target="_blank"
+        >
+          Open Grafana ↗
+        </a>
       </div>
 
-      <div className="grid min-h-[420px] place-items-center rounded-xl border border-[#352f41] bg-[radial-gradient(circle_at_50%_25%,rgba(139,92,246,.12),transparent_45%),#110f18] p-10 text-center">
-        <div>
-          <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-2xl border border-[#514563] bg-[#211b2d] text-2xl text-[#c084fc]">
-            ›_
-          </div>
-          <h3 className="m-0 text-2xl font-semibold">Live container logs</h3>
-          <p className="mx-auto mt-2 mb-6 max-w-md text-[#91899f]">
-            stdout and stderr from every replica are collected by Alloy and
-            searchable in Loki.
-          </p>
-          <a
-            className="primary-action"
-            href={grafanaLogs(app.name)}
-            rel="noreferrer"
-            target="_blank"
-          >
-            Open in Grafana ↗
-          </a>
-        </div>
-      </div>
+      {error ? <EmptyState text={error} /> : <LogStream entries={entries} />}
     </div>
   );
 }

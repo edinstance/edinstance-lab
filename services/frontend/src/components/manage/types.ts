@@ -10,6 +10,7 @@ export interface AppForm {
   port: string;
   replicas: string;
   domains: string;
+  envContent: string;
 }
 export interface DatabaseForm {
   name: string;

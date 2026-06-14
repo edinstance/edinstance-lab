@@ -65,6 +65,14 @@ export function CreateAppSection({
             onChange={(e) => update("domains", e.target.value)}
           />
         </Field>
+        <Field label="Environment variables" className="col-[1/-1]">
+          <textarea
+            className="min-h-28 w-full resize-y border border-[#c9c1af] bg-white px-3 py-2 font-mono text-sm"
+            value={state.form.envContent}
+            placeholder={"API_URL=https://api.example.com\nNODE_ENV=production"}
+            onChange={(e) => update("envContent", e.target.value)}
+          />
+        </Field>
         <Button className="self-end" disabled={state.saving} type="submit">
           {state.saving ? "Creating..." : "Create app"}
         </Button>

@@ -1,16 +1,17 @@
 package server
 
 type App struct {
-	Name      string   `json:"name"`
-	Image     string   `json:"image"`
-	Status    string   `json:"status"`
-	Ready     bool     `json:"ready"`
-	Replicas  int      `json:"replicas"`
-	Port      int      `json:"port"`
-	Domains   []Domain `json:"domains"`
-	LastBuild string   `json:"lastBuild"`
-	Source    string   `json:"source"`
-	UpdatedAt string   `json:"updatedAt"`
+	Name          string   `json:"name"`
+	Image         string   `json:"image"`
+	Status        string   `json:"status"`
+	Ready         bool     `json:"ready"`
+	Replicas      int      `json:"replicas"`
+	Port          int      `json:"port"`
+	Domains       []Domain `json:"domains"`
+	LastBuild     string   `json:"lastBuild"`
+	Source        string   `json:"source"`
+	UpdatedAt     string   `json:"updatedAt"`
+	FailureReason string   `json:"failureReason,omitempty"`
 }
 
 type Domain struct {

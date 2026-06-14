@@ -106,6 +106,20 @@ export function CreateServiceModal({
               onChange={(e) => update("domains", e.target.value)}
             />
           </Field>
+          <Field
+            className="col-span-2 max-[640px]:col-auto"
+            label="Environment variables (optional)"
+          >
+            <textarea
+              className="min-h-32 w-full resize-y rounded-lg border border-[#42394f] bg-[#120f18] px-4 py-3 font-mono text-sm text-[#eee8f5] outline-none focus:border-[#a855f7]"
+              placeholder={"VITE_PLATFORM_API_URL=https://api.edinstance.uk\nVITE_AUTH_BASE_URL=https://ui.edinstance.uk\nVITE_MOCK_PLATFORM=false"}
+              value={state.form.envContent}
+              onChange={(e) => update("envContent", e.target.value)}
+            />
+            <span className="mt-2 block text-xs text-[#91899f]">
+              Enter one KEY=value pair per line. Values are stored as encrypted secrets.
+            </span>
+          </Field>
           <div className="col-span-2 mt-2 flex justify-end gap-3 max-[640px]:col-auto">
             <Button variant="ghost" onClick={onClose}>
               Cancel

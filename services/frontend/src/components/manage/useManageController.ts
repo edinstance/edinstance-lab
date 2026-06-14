@@ -35,6 +35,7 @@ const initialAppForm: AppForm = {
   port: "3000",
   replicas: "3",
   domains: "",
+  envContent: "",
 };
 const initialDatabaseForm: DatabaseForm = {
   name: "",
@@ -135,8 +136,28 @@ export function useManageController() {
           .map((item) => item.trim())
           .filter(Boolean),
       });
+      if (form.envContent.trim()) {
+        try {
+          const result = await uploadEnvFile(app.name, form.envContent);
+          setEnvVars((current) => ({ ...current, [app.name]: result.env }));
+          queryClient.setQueryData(appEnvVarsQueryKey(app.name), result.env);
+        } catch (err) {
+          setForm(initialAppForm);
+          setError(
+            `${app.name} was created, but its environment variables were not saved: ${
+              err instanceof Error ? err.message : "Unable to upload env vars"
+            }`,
+          );
+          await refreshTopology();
+          return true;
+        }
+      }
       setForm(initialAppForm);
-      setNotice(`${app.name} created`);
+      setNotice(
+        form.envContent.trim()
+          ? `${app.name} created with environment variables`
+          : `${app.name} created`,
+      );
       await refreshTopology();
       return true;
     } catch (err) {
@@ -217,11 +238,23 @@ export function useManageController() {
       setError("Env file too large; must be <= 1 MiB");
       return;
     }
+    await importEnvContent(app, await file.text());
+  }
+
+  async function importEnvContent(app: PlatformApp, content: string) {
+    if (!content.trim()) {
+      setError("Paste at least one KEY=value line");
+      return;
+    }
+    if (new Blob([content]).size > 1024 * 1024) {
+      setError("Env content too large; must be <= 1 MiB");
+      return;
+    }
     setBusyApp(app.name);
     setError(null);
     setNotice(null);
     try {
-      const result = await uploadEnvFile(app.name, await file.text());
+      const result = await uploadEnvFile(app.name, content);
       setEnvVars((current) => ({ ...current, [app.name]: result.env }));
       queryClient.setQueryData(appEnvVarsQueryKey(app.name), result.env);
       setNotice(`${app.name} env updated: ${result.env.length} secrets stored`);
@@ -347,6 +380,7 @@ export function useManageController() {
     createDatabaseFromForm,
     removeApp,
     importEnv,
+    importEnvContent,
     toggleEnvironment,
     saveEnvVar,
     removeEnvVar,

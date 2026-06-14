@@ -64,6 +64,16 @@ export function DeploymentsTab({
               <p className="m-0 text-sm text-[#91899f]">
                 Updated {formatDate(app.updatedAt)}
               </p>
+              {!app.ready && app.failureReason ? (
+                <div className="mt-4 max-w-3xl rounded-lg border border-[#8a6530] bg-black/20 px-4 py-3">
+                  <p className="m-0 text-xs font-semibold tracking-wide text-[#e9c46a] uppercase">
+                    Failure reason
+                  </p>
+                  <pre className="mt-2 mb-0 overflow-x-auto whitespace-pre-wrap text-sm text-[#f3dfae]">
+                    {app.failureReason}
+                  </pre>
+                </div>
+              ) : null}
             </div>
 
             <button

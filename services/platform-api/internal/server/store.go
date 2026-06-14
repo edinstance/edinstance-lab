@@ -16,6 +16,7 @@ func (s *Server) listAppsFromDB() ([]App, error) {
 			port,
 			replicas,
 			status,
+			coalesce(last_reconcile_error, ''),
 			updated_at
 			from services
 			where deletion_requested_at is null
@@ -30,7 +31,7 @@ func (s *Server) listAppsFromDB() ([]App, error) {
 	for rows.Next() {
 		var app App
 		var updatedAt time.Time
-		if err := rows.Scan(&app.Name, &app.Image, &app.Port, &app.Replicas, &app.Status, &updatedAt); err != nil {
+		if err := rows.Scan(&app.Name, &app.Image, &app.Port, &app.Replicas, &app.Status, &app.FailureReason, &updatedAt); err != nil {
 			return nil, err
 		}
 		app.Ready = app.Status == "ready"
@@ -106,10 +107,11 @@ func (s *Server) getAppFromDB(name string) (App, error) {
 			port,
 			replicas,
 			status,
+			coalesce(last_reconcile_error, ''),
 			updated_at
 		from services
 		where name = $1 and deletion_requested_at is null
-	`, name).Scan(&app.Name, &app.Image, &app.Port, &app.Replicas, &app.Status, &updatedAt)
+	`, name).Scan(&app.Name, &app.Image, &app.Port, &app.Replicas, &app.Status, &app.FailureReason, &updatedAt)
 	if err != nil {
 		return App{}, err
 	}

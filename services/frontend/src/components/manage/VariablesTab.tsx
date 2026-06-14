@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import { Button } from "../ui/Button";
 import { Field } from "../ui/Field";
 import { Input } from "../ui/Input";
@@ -22,9 +24,16 @@ export function VariablesTab({
   variables,
 }: VariablesTabProps) {
   const { state } = controller;
+  const [envContent, setEnvContent] = useState("");
 
   function submit(event: FormEvent<HTMLFormElement>) {
     void controller.saveEnvVar(app, event);
+  }
+
+  async function submitEnvContent(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await controller.importEnvContent(app, envContent);
+    setEnvContent("");
   }
 
   return (
@@ -49,6 +58,28 @@ export function VariablesTab({
           Import .env
         </label>
       </div>
+
+      <form
+        className="grid gap-3 rounded-xl border border-[#342e40] bg-[#1b1724] p-5"
+        onSubmit={(event) => void submitEnvContent(event)}
+      >
+        <Field label="Paste .env content">
+          <textarea
+            className="min-h-36 w-full resize-y rounded-lg border border-[#42394f] bg-[#120f18] px-4 py-3 font-mono text-sm text-[#eee8f5] outline-none focus:border-[#a855f7]"
+            onChange={(event) => setEnvContent(event.target.value)}
+            placeholder={"VITE_PLATFORM_API_URL=https://api.edinstance.uk\nVITE_AUTH_BASE_URL=https://ui.edinstance.uk\nVITE_MOCK_PLATFORM=false"}
+            value={envContent}
+          />
+        </Field>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="m-0 text-xs text-[#91899f]">
+            One KEY=value per line. On macOS, press Cmd+Shift+. in Finder to show hidden .env files.
+          </p>
+          <Button disabled={busy || !envContent.trim()} type="submit">
+            Import variables
+          </Button>
+        </div>
+      </form>
 
       <div className="overflow-hidden rounded-xl border border-[#342e40]">
         {variables.length ? (

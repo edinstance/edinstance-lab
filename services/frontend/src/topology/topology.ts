@@ -18,6 +18,7 @@ export interface PlatformApp {
   lastBuild: string;
   source: string;
   updatedAt: string;
+  failureReason?: string;
 }
 
 const edgeDefaults = {

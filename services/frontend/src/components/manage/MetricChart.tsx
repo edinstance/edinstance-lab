@@ -233,12 +233,19 @@ function MetricTooltip({
 
 function prepareSeries(series: Array<MetricSeries>) {
   return series
-    .map((item) => ({
-      ...item,
-      current: item.values.at(-1)?.[1] ?? 0,
-      lastTimestamp: item.values.at(-1)?.[0] ?? 0,
-      peak: Math.max(...item.values.map((point) => point[1]), 0),
-    }))
+    .map((item) => {
+      const values = item.values.filter(([time, value]) =>
+        isFiniteMetricPoint(time, value),
+      );
+
+      return {
+        ...item,
+        values,
+        current: values.at(-1)?.[1] ?? 0,
+        lastTimestamp: values.at(-1)?.[0] ?? 0,
+        peak: Math.max(...values.map((point) => point[1]), 0),
+      };
+    })
     .filter((item) => item.values.length >= 2)
     .sort((left, right) => {
       if (right.lastTimestamp !== left.lastTimestamp) {
@@ -249,12 +256,16 @@ function prepareSeries(series: Array<MetricSeries>) {
 }
 
 function niceMax(value: number) {
-  if (value <= 0) return 1;
+  if (!Number.isFinite(value) || value <= 0) return 1;
   const magnitude = 10 ** Math.floor(Math.log10(value));
   return Math.ceil(value / magnitude) * magnitude;
 }
 
-function formatMetric(value: number, unit: "vCPU" | "bytes") {
+function formatMetric(value: unknown, unit: "vCPU" | "bytes") {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return unit === "vCPU" ? "0.00 vCPU" : "0 B";
+  }
+
   if (unit === "vCPU") {
     if (value < 0.01) return `${(value * 1000).toFixed(1)}m`;
     return `${value.toFixed(2)} vCPU`;

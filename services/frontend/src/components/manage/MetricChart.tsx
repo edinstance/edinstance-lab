@@ -173,7 +173,6 @@ export function MetricChart({
         {prepared.length && timeDomain ? (
           <MetricHoverOverlay
             data={data}
-            maxValue={maxValue}
             timeDomain={timeDomain}
             unit={unit}
           />
@@ -228,12 +227,10 @@ function SummaryStat({ label, value }: { label: string; value: string }) {
 
 function MetricHoverOverlay({
   data,
-  maxValue,
   timeDomain,
   unit,
 }: {
   data: Array<ChartDataSeries>;
-  maxValue: number;
   timeDomain: TimeDomain;
   unit: "vCPU" | "bytes";
 }) {
@@ -241,15 +238,15 @@ function MetricHoverOverlay({
   const [hover, setHover] = useState<HoverState | null>(null);
 
   function updateHover(clientX: number, clientY: number) {
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect) return;
+    const container = containerRef.current;
+    const rect = container?.getBoundingClientRect();
+    if (!container || !rect) return;
 
     const plotLeft = chartPadding.left;
     const plotRight = rect.width - chartPadding.right;
     const plotTop = chartPadding.top;
     const plotBottom = rect.height - chartPadding.bottom;
     const plotWidth = Math.max(plotRight - plotLeft, 1);
-    const plotHeight = Math.max(plotBottom - plotTop, 1);
     const x = clientX - rect.left;
     const y = clientY - rect.top;
 
@@ -260,14 +257,27 @@ function MetricHoverOverlay({
 
     const ratio = (x - plotLeft) / plotWidth;
     const timeMs = timeDomain.min + ratio * (timeDomain.max - timeDomain.min);
+    const paths = Array.from(
+      container.parentElement?.querySelectorAll<SVGPathElement>(
+        ".Series path",
+      ) ?? [],
+    );
     const candidates = data
-      .map((series) => interpolateSeries(series, timeMs))
-      .filter((candidate): candidate is HoverCandidate => Boolean(candidate))
-      .map((candidate) => ({
-        ...candidate,
-        x,
-        y: plotTop + (1 - candidate.value / maxValue) * plotHeight,
-      }));
+      .map((series, index) => {
+        const candidate = interpolateSeries(series, timeMs);
+        const point = pointOnPathAtClientX(paths[index], clientX, rect);
+
+        return candidate && point
+          ? {
+              ...candidate,
+              x: point.x,
+              y: point.y,
+            }
+          : null;
+      })
+      .filter(
+        (candidate): candidate is HoverPointCandidate => Boolean(candidate),
+      );
     if (!candidates.length) {
       setHover(null);
       return;
@@ -348,11 +358,14 @@ interface HoverCandidate {
   value: number;
 }
 
-interface HoverState extends HoverCandidate {
-  time: Date;
-  width: number;
+interface HoverPointCandidate extends HoverCandidate {
   x: number;
   y: number;
+}
+
+interface HoverState extends HoverPointCandidate {
+  time: Date;
+  width: number;
 }
 
 interface TimeDomain {
@@ -399,6 +412,49 @@ function interpolateSeries(
   }
 
   return null;
+}
+
+function pointOnPathAtClientX(
+  path: SVGPathElement | undefined,
+  clientX: number,
+  containerRect: DOMRect,
+) {
+  if (!path) return null;
+
+  const bounds = path.getBoundingClientRect();
+  if (clientX < bounds.left || clientX > bounds.right) return null;
+
+  const totalLength = path.getTotalLength();
+  let low = 0;
+  let high = totalLength;
+
+  for (let step = 0; step < 18; step += 1) {
+    const mid = (low + high) / 2;
+    const point = pathPointToClient(path, mid);
+    if (!point) return null;
+
+    if (point.x < clientX) {
+      low = mid;
+    } else {
+      high = mid;
+    }
+  }
+
+  const point = pathPointToClient(path, (low + high) / 2);
+  if (!point) return null;
+
+  return {
+    x: point.x - containerRect.left,
+    y: point.y - containerRect.top,
+  };
+}
+
+function pathPointToClient(path: SVGPathElement, length: number) {
+  const matrix = path.getScreenCTM();
+  if (!matrix) return null;
+
+  const point = path.getPointAtLength(length);
+  return new DOMPoint(point.x, point.y).matrixTransform(matrix);
 }
 
 const noop = () => undefined;

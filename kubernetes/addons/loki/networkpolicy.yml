@@ -20,6 +20,12 @@ spec:
             matchLabels:
               app.kubernetes.io/name: loki
               app.kubernetes.io/component: gateway
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: platform-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: platform-api
       ports:
         - protocol: TCP
           port: 3100

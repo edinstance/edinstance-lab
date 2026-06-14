@@ -44,7 +44,7 @@ func Load() Config {
 		TraceSampleRatio:      traceSampleRatio(),
 		OTLPEndpoint:          value("OTEL_EXPORTER_OTLP_ENDPOINT", "http://opentelemetry-collector.opentelemetry.svc.cluster.local:4318"),
 		PrometheusURL:         value("PROMETHEUS_URL", "http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090"),
-		LokiURL:               value("LOKI_URL", "http://loki-gateway.monitoring.svc.cluster.local"),
+		LokiURL:               value("LOKI_URL", "http://monitoring-loki-gateway.monitoring.svc.cluster.local"),
 		DatabaseURL:           databaseURL(),
 		PlatformEncryptionKey: os.Getenv("PLATFORM_ENCRYPTION_KEY"),
 		ReconcileEnabled:      strings.EqualFold(os.Getenv("PLATFORM_RECONCILE_ENABLED"), "true"),

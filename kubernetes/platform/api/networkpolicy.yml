@@ -158,6 +158,30 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
+  name: allow-platform-api-loki-egress
+  namespace: platform-system
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: platform-api
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 8080
+        - protocol: TCP
+          port: 3100
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
   name: allow-platform-api-otel-egress
   namespace: platform-system
 spec:

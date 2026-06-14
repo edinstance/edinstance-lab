@@ -106,6 +106,9 @@ func (s *Server) queryPrometheus(r *http.Request, query string, start, end time.
 				points = append(points, [2]float64{timestamp, parsed})
 			}
 		}
+		if len(points) == 0 || int64(points[len(points)-1][0]) < end.Unix()-int64(step*2) {
+			continue
+		}
 		series = append(series, metricSeries{Pod: item.Metric["pod"], Values: points})
 	}
 	return series, nil

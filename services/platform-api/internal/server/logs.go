@@ -1,10 +1,13 @@
 package server
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -81,7 +84,7 @@ func (s *Server) queryLokiLogs(r *http.Request, namespace, app string, limit int
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("loki returned %s", response.Status)
+		return nil, fmt.Errorf("loki returned %s: %s", response.Status, readBodyPreview(response.Body))
 	}
 	var body lokiResponse
 	if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
@@ -90,21 +93,34 @@ func (s *Server) queryLokiLogs(r *http.Request, namespace, app string, limit int
 
 	entries := make([]logEntry, 0, limit)
 	for _, stream := range body.Data.Result {
-		for _, value := range stream.Values {
+		for index := len(stream.Values) - 1; index >= 0; index-- {
+			value := stream.Values[index]
 			if len(value) != 2 {
 				continue
 			}
+			message, level := parseLogLine(value[1])
 			entries = append(entries, logEntry{
 				Timestamp: formatLokiTimestamp(value[0]),
 				Namespace: stream.Stream["namespace"],
 				Pod:       stream.Stream["pod"],
 				Container: stream.Stream["container"],
-				Level:     logLevelFromLine(value[1]),
-				Message:   value[1],
+				Level:     level,
+				Message:   message,
 			})
 		}
 	}
+	sort.SliceStable(entries, func(i, j int) bool {
+		return entries[i].Timestamp > entries[j].Timestamp
+	})
 	return entries, nil
+}
+
+func readBodyPreview(body io.Reader) string {
+	scanner := bufio.NewScanner(io.LimitReader(body, 512))
+	if scanner.Scan() {
+		return scanner.Text()
+	}
+	return ""
 }
 
 func formatLokiTimestamp(raw string) string {
@@ -123,6 +139,33 @@ func logLevelFromLine(line string) string {
 		}
 	}
 	return ""
+}
+
+func parseLogLine(line string) (string, string) {
+	var structured struct {
+		Message  string `json:"message"`
+		Msg      string `json:"msg"`
+		Level    string `json:"level"`
+		Severity string `json:"severity"`
+	}
+	if err := json.Unmarshal([]byte(line), &structured); err == nil {
+		message := strings.TrimSpace(structured.Message)
+		if message == "" {
+			message = strings.TrimSpace(structured.Msg)
+		}
+		if message == "" {
+			message = line
+		}
+		level := strings.ToLower(strings.TrimSpace(structured.Level))
+		if level == "" {
+			level = strings.ToLower(strings.TrimSpace(structured.Severity))
+		}
+		if level == "" {
+			level = logLevelFromLine(line)
+		}
+		return message, level
+	}
+	return line, logLevelFromLine(line)
 }
 
 func escapeLogQLString(value string) string {

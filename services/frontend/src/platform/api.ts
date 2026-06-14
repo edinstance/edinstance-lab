@@ -7,6 +7,7 @@ import {
   mockDeleteEnvVar,
   mockGetAppLogs,
   mockGetAppMetrics,
+  mockGetDatabaseCredentials,
   mockGetEnvVar,
   mockGetSession,
   mockListApps,
@@ -99,6 +100,15 @@ export interface PostgresDatabase {
   host: string;
   credentialsSecret: string;
   status: string;
+}
+
+export interface PostgresCredentials {
+  host: string;
+  port: number;
+  database: string;
+  username: string;
+  password: string;
+  url: string;
 }
 
 export type CreatePostgresInput = Omit<
@@ -400,6 +410,21 @@ export async function createDatabase(
   if (!response.ok)
     throw new Error(await readError(response, "Unable to create database"));
   return response.json() as Promise<PostgresDatabase>;
+}
+
+export async function getDatabaseCredentials(
+  name: string,
+): Promise<PostgresCredentials> {
+  if (env.mockPlatform) return mockGetDatabaseCredentials(name);
+  requireSecureConnection();
+  const response = await apiFetch(
+    `${apiBase}/api/databases/${encodeURIComponent(name)}/credentials`,
+    { headers: await authHeaders() },
+  );
+  if (!response.ok) {
+    throw new Error(await readError(response, "Unable to load database credentials"));
+  }
+  return response.json() as Promise<PostgresCredentials>;
 }
 
 async function authHeaders(): Promise<Record<string, string>> {

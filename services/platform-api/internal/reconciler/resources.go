@@ -171,7 +171,7 @@ func (r *Reconciler) networkPolicy(spec AppSpec) *unstructured.Unstructured {
 					},
 				},
 				map[string]any{
-					"to": []any{namespaceSelector(r.cfg.AppsNamespace)},
+					"to": []any{namespaceSelector("platform-db")},
 					"ports": []any{
 						map[string]any{"protocol": "TCP", "port": int64(5432)},
 					},

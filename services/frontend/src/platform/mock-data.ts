@@ -5,6 +5,7 @@ import type {
   EnvUploadResult,
   EnvVariable,
   LogEntry,
+  PostgresCredentials,
   PostgresDatabase,
   Session,
 } from "./api";
@@ -99,6 +100,10 @@ let databases: Array<PostgresDatabase> = [
     status: "ready",
   },
 ];
+const databasePasswords: Record<string, string> = {
+  "app-primary": "mock-app-primary-password",
+  analytics: "mock-analytics-password",
+};
 
 const envVars: Record<string, Array<EnvVariable>> = {
   storefront: [
@@ -253,7 +258,25 @@ export function mockCreateDatabase(
     database,
     ...databases.filter((item) => item.name !== database.name),
   ];
+  databasePasswords[input.name] = input.password;
   return database;
+}
+
+export function mockGetDatabaseCredentials(name: string): PostgresCredentials {
+  const database = databases.find((item) => item.name === name);
+  if (!database) throw new Error("Database not found");
+  const password = databasePasswords[name] ?? "mock-password";
+  const host = database.public && database.publicHostname
+    ? database.publicHostname
+    : database.host;
+  return {
+    host,
+    port: 5432,
+    database: database.database,
+    username: database.owner,
+    password,
+    url: `postgresql://${encodeURIComponent(database.owner)}:${encodeURIComponent(password)}@${host}:5432/${encodeURIComponent(database.database)}?sslmode=require`,
+  };
 }
 
 function metricSeries(

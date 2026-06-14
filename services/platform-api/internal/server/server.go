@@ -60,6 +60,7 @@ func New(cfg config.Config, logger *slog.Logger, db *platformdb.DB, secretCipher
 	mux.HandleFunc("DELETE /api/apps/{name}/env/{variable}", s.withAuth(s.deleteEnvVar))
 	mux.HandleFunc("GET /api/databases", s.withAuth(s.listPostgresDatabases))
 	mux.HandleFunc("POST /api/databases", s.withAuth(s.createPostgresDatabase))
+	mux.HandleFunc("GET /api/databases/{name}/credentials", s.withAuth(s.getPostgresCredentials))
 
 	return s.withCORS(otelhttp.NewHandler(s.withRequestLogging(mux), cfg.ServiceName))
 }

@@ -73,3 +73,12 @@ type CreatePostgresRequest struct {
 	PublicHostname    string   `json:"publicHostname,omitempty"`
 	PublicSourceCIDRs []string `json:"publicSourceCidrs,omitempty"`
 }
+
+type PostgresCredentials struct {
+	Host     string `json:"host"`
+	Port     int    `json:"port"`
+	Database string `json:"database"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+	URL      string `json:"url"`
+}

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 
 import { CreateDatabaseModal } from "../components/manage/CreateDatabaseModal";
 import { CreateServiceModal } from "../components/manage/CreateServiceModal";
+import { DatabaseDrawer } from "../components/manage/DatabaseDrawer";
 import { ManageNotification } from "../components/manage/ManageNotification";
 import { PlatformNodeDrawer } from "../components/manage/PlatformNodeDrawer";
 import { ServiceDrawer } from "../components/manage/ServiceDrawer";
@@ -155,7 +156,12 @@ function ManagePage() {
         />
       ) : null}
 
-      {selectedPlatformNode ? (
+      {selectedDatabase ? (
+        <DatabaseDrawer
+          database={selectedDatabase}
+          onClose={() => setSelectedName(null)}
+        />
+      ) : selectedPlatformNode ? (
         <PlatformNodeDrawer
           node={selectedPlatformNode}
           onClose={() => setSelectedName(null)}

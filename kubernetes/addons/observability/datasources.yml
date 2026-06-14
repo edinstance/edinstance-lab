@@ -38,7 +38,7 @@ data:
         uid: tempo
         type: tempo
         access: proxy
-        url: http://tempo.monitoring.svc.cluster.local:3200
+        url: http://monitoring-tempo.monitoring.svc.cluster.local:3200
         jsonData:
           nodeGraph:
             enabled: true

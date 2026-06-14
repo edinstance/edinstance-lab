@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Chart } from "react-charts";
 
 import type { MetricSeries } from "../../platform/api";
@@ -8,7 +8,6 @@ import type {
   Datum,
   Series,
 } from "react-charts";
-import type { TooltipRendererProps } from "react-charts/types/components/TooltipRenderer";
 
 const chartColors = [
   "#a855f7",
@@ -23,6 +22,19 @@ interface MetricDatum {
   time: Date;
   value: number;
 }
+
+interface ChartDataSeries {
+  color: string;
+  data: Array<MetricDatum>;
+  label: string;
+}
+
+const chartPadding = {
+  bottom: 28,
+  left: 56,
+  right: 14,
+  top: 16,
+};
 
 export function MetricChart({
   label,
@@ -97,31 +109,27 @@ export function MetricChart({
       getSeriesStyle,
       interactionMode: "primary",
       padding: {
-        bottom: 28,
-        left: 56,
-        right: 14,
-        top: 16,
+        bottom: chartPadding.bottom,
+        left: chartPadding.left,
+        right: chartPadding.right,
+        top: chartPadding.top,
       },
       primaryAxis,
       primaryCursor: {
-        show: true,
+        show: false,
         showLabel: false,
-        showLine: true,
+        showLine: false,
       },
       secondaryCursor: {
-        show: true,
+        show: false,
         showLabel: false,
-        showLine: true,
+        showLine: false,
       },
       secondaryAxes,
       showVoronoi: false,
-      tooltip: {
-        align: "right",
-        groupingMode: "single",
-        render: (props) => <MetricTooltip {...props} unit={unit} />,
-      },
+      tooltip: false,
     }),
-    [data, primaryAxis, secondaryAxes, unit],
+    [data, primaryAxis, secondaryAxes],
   );
 
   return (
@@ -143,6 +151,9 @@ export function MetricChart({
         <div className="h-72 w-full text-[#aaa2b5]">
           {prepared.length ? <Chart options={chartOptions} /> : null}
         </div>
+        {prepared.length ? (
+          <MetricHoverOverlay data={data} maxValue={maxValue} unit={unit} />
+        ) : null}
 
         {!prepared.length ? (
           <div className="absolute inset-0 grid place-items-center text-sm text-[#777080]">
@@ -191,36 +202,173 @@ function SummaryStat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function MetricTooltip({
-  focusedDatum,
-  getDatumStyle: getTooltipDatumStyle,
+function MetricHoverOverlay({
+  data,
+  maxValue,
   unit,
-}: TooltipRendererProps<MetricDatum> & { unit: "vCPU" | "bytes" }) {
-  if (!focusedDatum) return null;
+}: {
+  data: Array<ChartDataSeries>;
+  maxValue: number;
+  unit: "vCPU" | "bytes";
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [hover, setHover] = useState<HoverState | null>(null);
+  const timeDomain = useMemo(() => getTimeDomain(data), [data]);
 
-  const style = getTooltipDatumStyle(focusedDatum);
+  function updateHover(clientX: number, clientY: number) {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect || !timeDomain) return;
+
+    const plotLeft = chartPadding.left;
+    const plotRight = rect.width - chartPadding.right;
+    const plotTop = chartPadding.top;
+    const plotBottom = rect.height - chartPadding.bottom;
+    const plotWidth = Math.max(plotRight - plotLeft, 1);
+    const plotHeight = Math.max(plotBottom - plotTop, 1);
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+
+    if (x < plotLeft || x > plotRight || y < plotTop || y > plotBottom) {
+      setHover(null);
+      return;
+    }
+
+    const ratio = (x - plotLeft) / plotWidth;
+    const timeMs = timeDomain.min + ratio * (timeDomain.max - timeDomain.min);
+    const candidates = data
+      .map((series) => interpolateSeries(series, timeMs))
+      .filter((candidate): candidate is HoverCandidate => Boolean(candidate))
+      .map((candidate) => ({
+        ...candidate,
+        x,
+        y: plotTop + (1 - candidate.value / maxValue) * plotHeight,
+      }));
+    if (!candidates.length) {
+      setHover(null);
+      return;
+    }
+
+    const closest = candidates.sort(
+      (left, right) => Math.abs(left.y - y) - Math.abs(right.y - y),
+    )[0];
+    if (Math.abs(closest.y - y) > 44) {
+      setHover(null);
+      return;
+    }
+
+    setHover({
+      color: closest.color,
+      label: closest.label,
+      time: new Date(timeMs),
+      value: closest.value,
+      width: rect.width,
+      x,
+      y: closest.y,
+    });
+  }
 
   return (
-    <div className="min-w-56 rounded-lg border border-[#41394d] bg-[#17131f]/95 px-3 py-2 shadow-2xl shadow-black/30 backdrop-blur">
-      <p className="m-0 mb-2 text-xs font-medium text-[#aaa2b5]">
-        {formatHoverTime(focusedDatum.originalDatum.time)}
-      </p>
-      <div className="grid gap-1.5">
-        <div className="grid grid-cols-[9px_minmax(7rem,1fr)_auto] items-center gap-2 text-xs">
-          <i
-            className="h-2 w-2 rounded-full"
-            style={{ backgroundColor: String(style.color) }}
+    <div
+      className="absolute inset-0"
+      onMouseLeave={() => setHover(null)}
+      onMouseMove={(event) => updateHover(event.clientX, event.clientY)}
+      ref={containerRef}
+    >
+      {hover ? (
+        <>
+          <div
+            className="pointer-events-none absolute top-4 bottom-7 w-px bg-white/30"
+            style={{ left: hover.x }}
           />
-          <span className="truncate text-[#c8c0d2]">
-            {focusedDatum.seriesLabel}
-          </span>
-          <span className="font-mono text-[#f2edf7]">
-            {formatMetric(Number(focusedDatum.secondaryValue ?? 0), unit)}
-          </span>
-        </div>
-      </div>
+          <i
+            className="pointer-events-none absolute h-3 w-3 rounded-full border-2 bg-[#100e17]"
+            style={{
+              borderColor: hover.color,
+              left: hover.x,
+              top: hover.y,
+              transform: "translate(-50%, -50%)",
+            }}
+          />
+          <div
+            className="pointer-events-none absolute min-w-56 rounded-lg border border-[#41394d] bg-[#17131f]/95 px-3 py-2 shadow-2xl shadow-black/30 backdrop-blur"
+            style={{
+              left: hover.x + 280 > hover.width ? undefined : hover.x + 28,
+              right: hover.x + 280 > hover.width ? 16 : undefined,
+              top: Math.max(12, hover.y - 54),
+            }}
+          >
+            <p className="m-0 mb-2 text-xs font-medium text-[#aaa2b5]">
+              {formatHoverTime(hover.time)}
+            </p>
+            <div className="grid grid-cols-[9px_minmax(7rem,1fr)_auto] items-center gap-2 text-xs">
+              <i
+                className="h-2 w-2 rounded-full"
+                style={{ backgroundColor: hover.color }}
+              />
+              <span className="truncate text-[#c8c0d2]">{hover.label}</span>
+              <span className="font-mono text-[#f2edf7]">
+                {formatMetric(hover.value, unit)}
+              </span>
+            </div>
+          </div>
+        </>
+      ) : null}
     </div>
   );
+}
+
+interface HoverCandidate {
+  color: string;
+  label: string;
+  value: number;
+}
+
+interface HoverState extends HoverCandidate {
+  time: Date;
+  width: number;
+  x: number;
+  y: number;
+}
+
+function getTimeDomain(data: Array<ChartDataSeries>) {
+  const timestamps = data.flatMap((series) =>
+    series.data.map((datum) => datum.time.getTime()),
+  );
+  const min = Math.min(...timestamps);
+  const max = Math.max(...timestamps);
+
+  if (!Number.isFinite(min) || !Number.isFinite(max) || min === max) {
+    return null;
+  }
+
+  return { min, max };
+}
+
+function interpolateSeries(
+  series: ChartDataSeries,
+  timeMs: number,
+): HoverCandidate | null {
+  const points = series.data;
+  if (points.length < 2) return null;
+
+  for (let index = 1; index < points.length; index += 1) {
+    const previous = points[index - 1];
+    const next = points[index];
+    const previousTime = previous.time.getTime();
+    const nextTime = next.time.getTime();
+
+    if (timeMs >= previousTime && timeMs <= nextTime) {
+      const span = nextTime - previousTime;
+      const ratio = span ? (timeMs - previousTime) / span : 0;
+      return {
+        color: series.color,
+        label: series.label,
+        value: previous.value + (next.value - previous.value) * ratio,
+      };
+    }
+  }
+
+  return null;
 }
 
 function prepareSeries(series: Array<MetricSeries>) {

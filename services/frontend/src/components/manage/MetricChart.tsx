@@ -95,7 +95,7 @@ export function MetricChart({
       defaultColors: chartColors,
       getDatumStyle,
       getSeriesStyle,
-      interactionMode: "closest",
+      interactionMode: "primary",
       padding: {
         bottom: 28,
         left: 56,
@@ -114,7 +114,7 @@ export function MetricChart({
         showLine: true,
       },
       secondaryAxes,
-      showVoronoi: true,
+      showVoronoi: false,
       tooltip: {
         align: "right",
         groupingMode: "single",

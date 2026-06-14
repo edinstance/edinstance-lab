@@ -113,12 +113,8 @@ func (r *Reconciler) httpRoute(spec AppSpec) *unstructured.Unstructured {
 		"kind":       "HTTPRoute",
 		"metadata":   r.metadata(spec.Name, spec.Name),
 		"spec": map[string]any{
-			"parentRefs": []any{map[string]any{
-				"name":        r.cfg.GatewayName,
-				"namespace":   r.cfg.GatewayNamespace,
-				"sectionName": r.cfg.GatewaySectionName,
-			}},
-			"hostnames": hostnames,
+			"parentRefs": gatewayParentRefs(r.cfg.GatewayName, r.cfg.GatewayNamespace),
+			"hostnames":  hostnames,
 			"rules": []any{map[string]any{
 				"backendRefs": []any{map[string]any{
 					"name": spec.Name,
@@ -127,6 +123,18 @@ func (r *Reconciler) httpRoute(spec AppSpec) *unstructured.Unstructured {
 			}},
 		},
 	}}
+}
+
+func gatewayParentRefs(name, namespace string) []any {
+	refs := make([]any, 0, 3)
+	for _, sectionName := range []string{"http-local", "https-local", "http-public"} {
+		refs = append(refs, map[string]any{
+			"name":        name,
+			"namespace":   namespace,
+			"sectionName": sectionName,
+		})
+	}
+	return refs
 }
 
 func (r *Reconciler) networkPolicy(spec AppSpec) *unstructured.Unstructured {

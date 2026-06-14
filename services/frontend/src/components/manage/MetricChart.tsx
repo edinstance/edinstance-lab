@@ -83,9 +83,12 @@ export function MetricChart({
       })),
     [visibleSeries],
   );
+  const timeDomain = useMemo(() => getTimeDomain(data), [data]);
   const primaryAxis = useMemo(
     (): AxisOptions<MetricDatum> => ({
       getValue: (datum) => datum.time,
+      hardMax: timeDomain ? new Date(timeDomain.max) : undefined,
+      hardMin: timeDomain ? new Date(timeDomain.min) : undefined,
       scaleType: "localTime",
       showGrid: false,
       formatters: {
@@ -94,7 +97,7 @@ export function MetricChart({
         tooltip: formatHoverTime,
       },
     }),
-    [],
+    [timeDomain],
   );
   const secondaryAxes = useMemo(
     (): Array<AxisOptions<MetricDatum>> => [
@@ -167,8 +170,13 @@ export function MetricChart({
         <div className="h-72 w-full text-[#aaa2b5]">
           {prepared.length ? <Chart options={chartOptions} /> : null}
         </div>
-        {prepared.length ? (
-          <MetricHoverOverlay data={data} maxValue={maxValue} unit={unit} />
+        {prepared.length && timeDomain ? (
+          <MetricHoverOverlay
+            data={data}
+            maxValue={maxValue}
+            timeDomain={timeDomain}
+            unit={unit}
+          />
         ) : null}
 
         {!prepared.length ? (
@@ -221,19 +229,20 @@ function SummaryStat({ label, value }: { label: string; value: string }) {
 function MetricHoverOverlay({
   data,
   maxValue,
+  timeDomain,
   unit,
 }: {
   data: Array<ChartDataSeries>;
   maxValue: number;
+  timeDomain: TimeDomain;
   unit: "vCPU" | "bytes";
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<HoverState | null>(null);
-  const timeDomain = useMemo(() => getTimeDomain(data), [data]);
 
   function updateHover(clientX: number, clientY: number) {
     const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect || !timeDomain) return;
+    if (!rect) return;
 
     const plotLeft = chartPadding.left;
     const plotRight = rect.width - chartPadding.right;
@@ -346,6 +355,11 @@ interface HoverState extends HoverCandidate {
   y: number;
 }
 
+interface TimeDomain {
+  max: number;
+  min: number;
+}
+
 function getTimeDomain(data: Array<ChartDataSeries>) {
   const timestamps = data.flatMap((series) =>
     series.data.map((datum) => datum.time.getTime()),
@@ -357,7 +371,7 @@ function getTimeDomain(data: Array<ChartDataSeries>) {
     return null;
   }
 
-  return { min, max };
+  return { max, min };
 }
 
 function interpolateSeries(

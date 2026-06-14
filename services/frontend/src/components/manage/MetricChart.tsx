@@ -29,6 +29,21 @@ interface ChartDataSeries {
   label: string;
 }
 
+interface CurveContext {
+  lineTo: (x: number, y: number) => void;
+  moveTo: (x: number, y: number) => void;
+}
+
+interface LinearCurve {
+  areaEnd: () => void;
+  areaStart: () => void;
+  lineEnd: () => void;
+  lineStart: () => void;
+  point: (x: number, y: number) => void;
+}
+
+type LinearCurveFactory = (context: CurveContext) => LinearCurve;
+
 const chartPadding = {
   bottom: 28,
   left: 56,
@@ -84,6 +99,7 @@ export function MetricChart({
   const secondaryAxes = useMemo(
     (): Array<AxisOptions<MetricDatum>> => [
       {
+        curve: linearCurve,
         elementType: "line",
         getValue: (datum) => datum.value,
         hardMax: maxValue,
@@ -147,7 +163,7 @@ export function MetricChart({
         </div>
       </div>
 
-      <div className="relative overflow-hidden rounded-lg border border-[#292431] bg-[#100e17]">
+      <div className="relative overflow-visible rounded-lg border border-[#292431] bg-[#100e17]">
         <div className="h-72 w-full text-[#aaa2b5]">
           {prepared.length ? <Chart options={chartOptions} /> : null}
         </div>
@@ -269,7 +285,7 @@ function MetricHoverOverlay({
 
   return (
     <div
-      className="absolute inset-0"
+      className="absolute inset-0 z-10"
       onMouseLeave={() => setHover(null)}
       onMouseMove={(event) => updateHover(event.clientX, event.clientY)}
       ref={containerRef}
@@ -281,7 +297,7 @@ function MetricHoverOverlay({
             style={{ left: hover.x }}
           />
           <i
-            className="pointer-events-none absolute h-3 w-3 rounded-full border-2 bg-[#100e17]"
+            className="pointer-events-none absolute z-20 h-3 w-3 rounded-full border-2 bg-[#100e17]"
             style={{
               borderColor: hover.color,
               left: hover.x,
@@ -290,11 +306,11 @@ function MetricHoverOverlay({
             }}
           />
           <div
-            className="pointer-events-none absolute min-w-56 rounded-lg border border-[#41394d] bg-[#17131f]/95 px-3 py-2 shadow-2xl shadow-black/30 backdrop-blur"
+            className="pointer-events-none absolute z-30 min-w-56 rounded-lg border border-[#41394d] bg-[#17131f]/95 px-3 py-2 shadow-2xl shadow-black/30 backdrop-blur"
             style={{
               left: hover.x + 280 > hover.width ? undefined : hover.x + 28,
               right: hover.x + 280 > hover.width ? 16 : undefined,
-              top: Math.max(12, hover.y - 54),
+              top: tooltipTop(hover.y),
             }}
           >
             <p className="m-0 mb-2 text-xs font-medium text-[#aaa2b5]">
@@ -369,6 +385,41 @@ function interpolateSeries(
   }
 
   return null;
+}
+
+const noop = () => undefined;
+
+const linearCurve: LinearCurveFactory = (context) => {
+  let started = false;
+
+  return {
+    areaEnd: noop,
+    areaStart: noop,
+    lineEnd: noop,
+    lineStart() {
+      started = false;
+    },
+    point(x, y) {
+      if (started) {
+        context.lineTo(x, y);
+        return;
+      }
+
+      context.moveTo(x, y);
+      started = true;
+    },
+  };
+};
+
+function tooltipTop(y: number) {
+  const estimatedHeight = 86;
+  const offset = 26;
+  const preferred = y > 118 ? y - estimatedHeight - offset : y + offset;
+  return clamp(preferred, 12, 288 - estimatedHeight - 12);
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
 }
 
 function prepareSeries(series: Array<MetricSeries>) {

@@ -17,6 +17,14 @@ export interface TopologyNodeData extends Record<string, unknown> {
   details: string;
   category: TopologyCategory;
   status?: string;
+  observability?: {
+    namespace: string;
+    app: string;
+    dashboardUid?: string;
+    dashboardSlug?: string;
+    workloadKind?: "Deployment" | "Cluster";
+    workloadName?: string;
+  };
   facts: Record<string, string | undefined>;
   sources: Array<string>;
   sourcePosition?: Position;

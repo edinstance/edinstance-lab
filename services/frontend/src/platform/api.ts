@@ -1,5 +1,21 @@
 import { env } from "../env";
 import { authClient } from "../lib/auth-client";
+import {
+  mockCreateApp,
+  mockCreateDatabase,
+  mockDeleteApp,
+  mockDeleteEnvVar,
+  mockGetAppLogs,
+  mockGetAppMetrics,
+  mockGetSession,
+  mockListApps,
+  mockListDatabases,
+  mockListEnvVars,
+  mockLogin,
+  mockLogout,
+  mockSetEnvVar,
+  mockUploadEnvFile,
+} from "./mock-data";
 import type { PlatformApp } from "../topology/topology";
 
 export interface Session {
@@ -83,6 +99,8 @@ async function readError(
 }
 
 export async function getSession(): Promise<Session> {
+  if (env.mockPlatform) return mockGetSession();
+
   const session = await authClient.getSession();
   if (!session.data?.user.email) {
     return { authenticated: false };
@@ -91,6 +109,8 @@ export async function getSession(): Promise<Session> {
 }
 
 export async function login(email: string, password: string): Promise<Session> {
+  if (env.mockPlatform) return mockLogin();
+
   requireSecureConnection();
   const result = await authClient.signIn.email({
     email,
@@ -108,6 +128,8 @@ export async function signup(input: {
   password: string;
   platformPassword: string;
 }): Promise<Session> {
+  if (env.mockPlatform) return mockLogin();
+
   requireSecureConnection();
   const result = await authClient.signUp.email({
     name: input.name,
@@ -126,10 +148,14 @@ export async function signup(input: {
 }
 
 export async function logout(): Promise<void> {
+  if (env.mockPlatform) return mockLogout();
+
   await authClient.signOut();
 }
 
 export async function listApps(): Promise<Array<PlatformApp>> {
+  if (env.mockPlatform) return mockListApps();
+
   const response = await apiFetch(`${apiBase}/api/apps`, {
     headers: await authHeaders(),
   });
@@ -143,6 +169,8 @@ export async function listApps(): Promise<Array<PlatformApp>> {
 }
 
 export async function createApp(input: CreateAppInput): Promise<PlatformApp> {
+  if (env.mockPlatform) return mockCreateApp(input);
+
   const response = await apiFetch(`${apiBase}/api/apps`, {
     method: "POST",
     headers: { ...(await authHeaders()), "Content-Type": "application/json" },
@@ -155,6 +183,8 @@ export async function createApp(input: CreateAppInput): Promise<PlatformApp> {
 }
 
 export async function deleteApp(name: string): Promise<void> {
+  if (env.mockPlatform) return mockDeleteApp(name);
+
   const response = await apiFetch(
     `${apiBase}/api/apps/${encodeURIComponent(name)}`,
     {
@@ -172,6 +202,8 @@ export async function getAppMetrics(
   hours: number,
   options: { namespace?: string; app?: string } = {},
 ): Promise<AppMetrics> {
+  if (env.mockPlatform) return mockGetAppMetrics(name, hours);
+
   if (!Number.isFinite(hours) || hours <= 0) {
     throw new Error("Hours must be a positive number");
   }
@@ -198,6 +230,8 @@ export async function getAppLogs(
   name: string,
   options: { namespace?: string; app?: string; limit?: number } = {},
 ): Promise<Array<LogEntry>> {
+  if (env.mockPlatform) return mockGetAppLogs(name, options.limit);
+
   const params = new URLSearchParams();
   if (options.namespace) params.set("namespace", options.namespace);
   if (options.app) params.set("app", options.app);
@@ -220,6 +254,8 @@ export async function uploadEnvFile(
   name: string,
   content: string,
 ): Promise<EnvUploadResult> {
+  if (env.mockPlatform) return mockUploadEnvFile(name, content);
+
   const response = await apiFetch(
     `${apiBase}/api/apps/${encodeURIComponent(name)}/env-file`,
     {
@@ -235,6 +271,8 @@ export async function uploadEnvFile(
 }
 
 export async function listEnvVars(name: string): Promise<Array<EnvVariable>> {
+  if (env.mockPlatform) return mockListEnvVars(name);
+
   const response = await apiFetch(
     `${apiBase}/api/apps/${encodeURIComponent(name)}/env`,
     { headers: await authHeaders() },
@@ -251,6 +289,8 @@ export async function setEnvVar(
   name: string,
   value: string,
 ): Promise<EnvVariable> {
+  if (env.mockPlatform) return mockSetEnvVar(app, name);
+
   const response = await apiFetch(
     `${apiBase}/api/apps/${encodeURIComponent(app)}/env/${encodeURIComponent(name)}`,
     {
@@ -267,6 +307,8 @@ export async function setEnvVar(
 }
 
 export async function deleteEnvVar(app: string, name: string): Promise<void> {
+  if (env.mockPlatform) return mockDeleteEnvVar(app, name);
+
   const response = await apiFetch(
     `${apiBase}/api/apps/${encodeURIComponent(app)}/env/${encodeURIComponent(name)}`,
     {
@@ -281,6 +323,8 @@ export async function deleteEnvVar(app: string, name: string): Promise<void> {
 }
 
 export async function listDatabases(): Promise<Array<PostgresDatabase>> {
+  if (env.mockPlatform) return mockListDatabases();
+
   const response = await apiFetch(`${apiBase}/api/databases`, {
     headers: await authHeaders(),
   });
@@ -293,6 +337,8 @@ export async function listDatabases(): Promise<Array<PostgresDatabase>> {
 export async function createDatabase(
   input: CreatePostgresInput,
 ): Promise<PostgresDatabase> {
+  if (env.mockPlatform) return mockCreateDatabase(input);
+
   const response = await apiFetch(`${apiBase}/api/databases`, {
     method: "POST",
     headers: { ...(await authHeaders()), "Content-Type": "application/json" },
@@ -304,6 +350,8 @@ export async function createDatabase(
 }
 
 async function authHeaders(): Promise<Record<string, string>> {
+  if (env.mockPlatform) return {};
+
   const result = await authClient.token();
   const token = result.data?.token;
   if (!token) {

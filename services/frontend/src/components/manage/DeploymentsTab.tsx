@@ -1,9 +1,14 @@
 import { EmptyState } from "./EmptyState";
-import { grafanaLogs } from "./grafana";
 import { ServiceStat } from "./ServiceStat";
 import type { PlatformApp } from "../../topology/topology";
 
-export function DeploymentsTab({ app }: { app: PlatformApp }) {
+export function DeploymentsTab({
+  app,
+  onViewLogs,
+}: {
+  app: PlatformApp;
+  onViewLogs: () => void;
+}) {
   return (
     <div className="grid gap-6">
       <div className="grid grid-cols-3 gap-3 max-[700px]:grid-cols-1">
@@ -31,7 +36,6 @@ export function DeploymentsTab({ app }: { app: PlatformApp }) {
                 rel="noreferrer"
                 target="_blank"
               >
-                <span className="text-[#5bd294]">◎</span>
                 <span className="flex-1">{domain.host}</span>
                 <small>{domain.scope}</small>
               </a>
@@ -62,14 +66,13 @@ export function DeploymentsTab({ app }: { app: PlatformApp }) {
               </p>
             </div>
 
-            <a
+            <button
               className="secondary-action"
-              href={grafanaLogs(app.name)}
-              rel="noreferrer"
-              target="_blank"
+              onClick={onViewLogs}
+              type="button"
             >
-              View logs ↗
-            </a>
+              View logs
+            </button>
           </div>
         </article>
       </section>

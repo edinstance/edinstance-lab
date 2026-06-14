@@ -1,5 +1,6 @@
 import {
   Background,
+  ControlButton,
   Controls,
   MiniMap,
   Panel,
@@ -90,10 +91,18 @@ function TopologyCanvasInner({
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
-      void fitView({ padding: 0.18, duration: 420 });
+      resetCanvas();
     });
     return () => cancelAnimationFrame(frame);
-  }, [apps.length, databases.length, fitView]);
+  }, [apps.length, databases.length]);
+
+  function resetCanvas() {
+    setNodes(topology.nodes);
+    setEdges(topology.edges);
+    requestAnimationFrame(() => {
+      void fitView({ padding: 0.18, duration: 420 });
+    });
+  }
 
   return (
     <section className="h-full p-3" aria-label="Platform service canvas">
@@ -127,32 +136,74 @@ function TopologyCanvasInner({
             position="bottom-right"
             zoomable
           />
-          <Controls className="railway-controls" position="bottom-left" />
-          <Panel className="!m-5 flex items-center gap-3" position="top-left">
-            <div className="rounded-xl border border-[#393342] bg-[#17141f]/95 px-4 py-3 shadow-xl backdrop-blur">
-              <p className="m-0 text-xs font-semibold tracking-[.16em] text-[#777080] uppercase">
-                edinstance
-              </p>
-              <div className="mt-1 flex items-center gap-2">
-                <span className="text-lg font-semibold">Production</span>
-                <span className="h-2 w-2 rounded-full bg-[#4ed08f] shadow-[0_0_12px_#4ed08f]" />
-              </div>
-            </div>
-          </Panel>
-          <Panel className="!m-5 flex gap-3" position="top-right">
+          <Controls
+            className="railway-controls"
+            fitViewOptions={{ padding: 0.18, duration: 420 }}
+            position="bottom-left"
+          >
+            <ControlButton
+              aria-label="Reset canvas view"
+              onClick={resetCanvas}
+              title="Reset canvas view"
+            >
+              <svg
+                aria-hidden="true"
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="1.5"
+                />
+              </svg>
+            </ControlButton>
+          </Controls>
+          <Panel className="m-5 flex gap-3" position="top-right">
             <button
               className="flex min-h-12 items-center gap-2 rounded-xl border border-[#484052] bg-[#211d2b] px-5 text-sm font-semibold text-white shadow-xl transition hover:border-[#76558f] hover:bg-[#2a2336]"
               onClick={onAddService}
               type="button"
             >
-              <span className="text-xl text-[#bd8cff]">＋</span> Add service
+              <svg
+                aria-hidden="true"
+                className="h-5 w-5 text-[#bd8cff]"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  d="M12 4.5v15m7.5-7.5h-15"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="1.5"
+                />
+              </svg>
+              Add service
             </button>
             <button
               className="flex min-h-12 items-center gap-2 rounded-xl border border-[#484052] bg-[#211d2b] px-5 text-sm font-semibold text-white shadow-xl transition hover:border-[#76558f] hover:bg-[#2a2336]"
               onClick={onAddDatabase}
               type="button"
             >
-              <span className="text-xl text-[#67dba2]">＋</span> Add PostgreSQL
+              <svg
+                aria-hidden="true"
+                className="h-5 w-5 text-[#67dba2]"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  d="M12 4.5v15m7.5-7.5h-15"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="1.5"
+                />
+              </svg>
+              Add PostgreSQL
             </button>
           </Panel>
           {loading ? (

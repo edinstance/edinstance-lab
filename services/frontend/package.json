@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev --host 0.0.0.0",
+    "dev:mock": "VITE_MOCK_PLATFORM=true vite dev --host 0.0.0.0",
     "build": "vite build",
     "start": "node --import ./instrumentation.mjs .output/server/index.mjs",
     "prettier": "prettier --write .",

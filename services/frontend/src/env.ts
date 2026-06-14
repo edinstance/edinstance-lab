@@ -3,6 +3,7 @@ const DEFAULT_GRAFANA_URL = "https://grafana.edinstance.uk";
 
 interface FrontendEnv {
   grafanaUrl: string;
+  mockPlatform: boolean;
   platformApiUrl: string;
 }
 
@@ -35,6 +36,7 @@ export const env: FrontendEnv = {
     frontendEnv.VITE_GRAFANA_URL,
     DEFAULT_GRAFANA_URL,
   ),
+  mockPlatform: frontendEnv.VITE_MOCK_PLATFORM === "true",
   platformApiUrl: readUrl(
     "VITE_PLATFORM_API_URL",
     frontendEnv.VITE_PLATFORM_API_URL,

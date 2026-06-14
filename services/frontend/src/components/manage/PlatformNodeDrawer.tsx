@@ -186,12 +186,6 @@ function PlatformMetrics({ node }: { node: TopologyNodeData }) {
         </a>
       </div>
 
-      <div className="grid grid-cols-3 gap-3 max-[700px]:grid-cols-1">
-        <ServiceStat label="Datasource" value="Prometheus" />
-        <ServiceStat label="Namespace" value={observability.namespace} />
-        <ServiceStat label="Selector" value={observability.app} />
-      </div>
-
       {error ? (
         <Unavailable text={error} />
       ) : (
@@ -246,26 +240,13 @@ function PlatformLogs({ node }: { node: TopologyNodeData }) {
   if (!observability)
     return <Unavailable text="No log target is configured for this node." />;
 
+  if (error) {
+    return <Unavailable text={error} />;
+  }
+
   return (
     <div className="grid gap-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="grid flex-1 grid-cols-3 gap-3 max-[700px]:grid-cols-1">
-          <ServiceStat label="Datasource" value="Loki" />
-          <ServiceStat label="Namespace" value={observability.namespace} />
-          <ServiceStat label="Label" value={`app=${observability.app}`} />
-        </div>
-
-        <a
-          className="secondary-action"
-          href={grafanaLogsFor(observability)}
-          rel="noreferrer"
-          target="_blank"
-        >
-          Open Grafana ↗
-        </a>
-      </div>
-
-      {error ? <Unavailable text={error} /> : <LogStream entries={entries} />}
+      <LogStream appName={grafanaLogsFor(observability)} entries={entries} />
     </div>
   );
 }

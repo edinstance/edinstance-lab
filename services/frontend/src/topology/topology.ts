@@ -39,7 +39,7 @@ export function createServiceTopology(
   const serviceNodes = apps.map<TopologyNode>((app, index) => ({
     id: app.name,
     type: "topologyNode",
-    position: { x: 1320, y: 140 + index * 220 },
+    position: { x: 1320, y: 680 + index * 250 },
     data: {
       title: app.name,
       subtitle: `${app.replicas} ${app.replicas === 1 ? "replica" : "replicas"}`,
@@ -60,7 +60,7 @@ export function createServiceTopology(
   const databaseNodes = databases.map<TopologyNode>((database, index) => ({
     id: `database:${database.name}`,
     type: "topologyNode",
-    position: { x: 1800, y: 140 + index * 220 },
+    position: { x: 1840, y: 680 + index * 250 },
     data: {
       title: database.name,
       subtitle: `${database.instances} ${database.instances === 1 ? "instance" : "instances"}${database.poolerEnabled ? " + PgBouncer" : ""}`,
@@ -84,7 +84,7 @@ export function createServiceTopology(
     {
       id: "platform-frontend",
       type: "topologyNode",
-      position: { x: 240, y: 400 },
+      position: { x: 160, y: 240 },
       data: {
         title: "Platform frontend",
         subtitle: "TanStack Start",
@@ -105,7 +105,7 @@ export function createServiceTopology(
     {
       id: "platform-api",
       type: "topologyNode",
-      position: { x: 720, y: 400 },
+      position: { x: 640, y: 240 },
       data: {
         title: "Platform API",
         subtitle: "Go control plane",
@@ -127,7 +127,7 @@ export function createServiceTopology(
     {
       id: "platform-db",
       type: "topologyNode",
-      position: { x: 1200, y: 400 },
+      position: { x: 1120, y: 240 },
       data: {
         title: "Platform PostgreSQL",
         subtitle: "3 instances + PgBouncer",

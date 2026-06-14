@@ -51,8 +51,10 @@ export function grafanaPlatformDashboard({
   app: string;
 }) {
   if (dashboardUid && dashboardSlug) {
-    return new URL(`/d/${dashboardUid}/${dashboardSlug}`, env.grafanaUrl)
-      .toString();
+    return new URL(
+      `/d/${dashboardUid}/${dashboardSlug}`,
+      env.grafanaUrl,
+    ).toString();
   }
 
   const url = new URL("/explore", env.grafanaUrl);

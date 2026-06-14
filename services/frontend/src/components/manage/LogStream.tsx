@@ -1,6 +1,13 @@
+import { grafanaLogs } from "./grafana";
 import type { LogEntry } from "../../platform/api";
 
-export function LogStream({ entries }: { entries: Array<LogEntry> }) {
+export function LogStream({
+  appName,
+  entries,
+}: {
+  appName: string;
+  entries: Array<LogEntry>;
+}) {
   const counts = countLevels(entries);
 
   return (
@@ -17,6 +24,14 @@ export function LogStream({ entries }: { entries: Array<LogEntry> }) {
           <LogPill label="Warnings" tone="warn" value={counts.warn} />
           <LogPill label="Total" tone="neutral" value={entries.length} />
         </div>
+        <a
+          className="secondary-action"
+          href={grafanaLogs(appName)}
+          rel="noreferrer"
+          target="_blank"
+        >
+          Open Grafana ↗
+        </a>
       </div>
 
       <div className="grid grid-cols-[120px_minmax(150px,220px)_78px_1fr] gap-3 border-b border-[#2f2938] px-4 py-2 text-[0.68rem] font-semibold tracking-[.11em] text-[#81798c] uppercase max-[900px]:grid-cols-[92px_68px_1fr]">

@@ -2,12 +2,7 @@ import { useMemo } from "react";
 import { Chart } from "react-charts";
 
 import type { MetricSeries } from "../../platform/api";
-import type {
-  AxisOptions,
-  ChartOptions,
-  Datum,
-  Series,
-} from "react-charts";
+import type { AxisOptions, ChartOptions, Datum, Series } from "react-charts";
 import type { TooltipRendererProps } from "react-charts/types/components/TooltipRenderer";
 
 const chartColors = [
@@ -310,9 +305,7 @@ function isFiniteMetricPoint(time: number, value: number) {
   return Number.isFinite(time) && Number.isFinite(value);
 }
 
-function getSeriesStyle(
-  series: Series<MetricDatum>,
-): React.CSSProperties & {
+function getSeriesStyle(series: Series<MetricDatum>): React.CSSProperties & {
   line?: React.CSSProperties;
   circle?: React.CSSProperties;
 } {
@@ -329,9 +322,7 @@ function getSeriesStyle(
   };
 }
 
-function getDatumStyle(
-  datum: Datum<MetricDatum>,
-): React.CSSProperties & {
+function getDatumStyle(datum: Datum<MetricDatum>): React.CSSProperties & {
   circle?: React.CSSProperties;
 } {
   const color = datum.originalSeries.color ?? chartColors[0];

@@ -68,10 +68,6 @@ export function ServiceDrawer({
       <header className="border-b border-[#312c3a] px-8 pt-7 max-[640px]:px-5">
         <div className="flex items-center justify-between gap-4">
           <div className="flex min-w-0 items-center gap-4">
-            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-[#4a405b] bg-[#211b2d] text-lg font-black text-[#c084fc]">
-              &lt;/&gt;
-            </div>
-
             <div className="min-w-0">
               <h2 className="m-0 truncate text-3xl font-semibold tracking-[-.025em]">
                 {app.name}
@@ -88,7 +84,20 @@ export function ServiceDrawer({
             onClick={onClose}
             type="button"
           >
-            ×
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.5}
+              stroke="currentColor"
+              className="size-6"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M6 18 18 6M6 6l12 12"
+              />
+            </svg>
           </button>
         </div>
 
@@ -120,6 +129,7 @@ export function ServiceDrawer({
           controller={controller}
           importFile={importFile}
           onDelete={() => void remove()}
+          onTabChange={onTabChange}
           tab={tab}
           variables={variables}
         />
@@ -134,6 +144,7 @@ function ServiceTabContent({
   controller,
   importFile,
   onDelete,
+  onTabChange,
   tab,
   variables,
 }: {
@@ -142,12 +153,15 @@ function ServiceTabContent({
   controller: ManageController;
   importFile: (event: ChangeEvent<HTMLInputElement>) => void;
   onDelete: () => void;
+  onTabChange: (tab: ServiceTab) => void;
   tab: ServiceTab;
   variables: ManageController["state"]["envVars"][string];
 }) {
   switch (tab) {
     case "deployments":
-      return <DeploymentsTab app={app} />;
+      return (
+        <DeploymentsTab app={app} onViewLogs={() => onTabChange("logs")} />
+      );
     case "variables":
       return (
         <VariablesTab

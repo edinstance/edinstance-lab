@@ -2,9 +2,7 @@ import { useEffect, useState } from "react";
 
 import { getAppLogs } from "../../platform/api";
 import { EmptyState } from "./EmptyState";
-import { grafanaLogs } from "./grafana";
 import { LogStream } from "./LogStream";
-import { ServiceStat } from "./ServiceStat";
 import type { PlatformApp } from "../../topology/topology";
 import type { LogEntry } from "../../platform/api";
 
@@ -32,26 +30,13 @@ export function LogsTab({ app }: { app: PlatformApp }) {
     };
   }, [app.name]);
 
+  if (error) {
+    return <EmptyState text={error} />;
+  }
+
   return (
     <div className="grid gap-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="grid flex-1 grid-cols-3 gap-3 max-[700px]:grid-cols-1">
-          <ServiceStat label="Service" value={app.name} />
-          <ServiceStat label="Namespace" value="apps" />
-          <ServiceStat label="Replicas" value={String(app.replicas)} />
-        </div>
-
-        <a
-          className="secondary-action"
-          href={grafanaLogs(app.name)}
-          rel="noreferrer"
-          target="_blank"
-        >
-          Open Grafana ↗
-        </a>
-      </div>
-
-      {error ? <EmptyState text={error} /> : <LogStream entries={entries} />}
+      <LogStream appName={app.name} entries={entries} />
     </div>
   );
 }

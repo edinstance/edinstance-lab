@@ -1,11 +1,13 @@
 package server
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -24,10 +26,11 @@ func (s *Server) listPostgresDatabases(w http.ResponseWriter, _ *http.Request) {
 	rows, err := s.db.Query(`
 		select name, namespace, database_name, owner_name, version, instances, storage_size,
 			pooler_enabled, pooler_instances, pool_mode, public, public_hostname,
-			public_source_cidrs, status
+			array_to_json(public_source_cidrs), status
 		from postgres_databases order by name
 	`)
 	if err != nil {
+		s.logger.Error("failed to query databases", "error", err)
 		writeError(w, http.StatusInternalServerError, "unable to load databases")
 		return
 	}
@@ -35,15 +38,27 @@ func (s *Server) listPostgresDatabases(w http.ResponseWriter, _ *http.Request) {
 	databases := []PostgresDatabase{}
 	for rows.Next() {
 		var database PostgresDatabase
+		var publicSourceCIDRsJSON []byte
 		if err := rows.Scan(&database.Name, &database.Namespace, &database.Database, &database.Owner,
 			&database.Version, &database.Instances, &database.StorageSize, &database.PoolerEnabled,
 			&database.PoolerInstances, &database.PoolMode, &database.Public,
-			&database.PublicHostname, &database.PublicSourceCIDRs, &database.Status); err != nil {
+			&database.PublicHostname, &publicSourceCIDRsJSON, &database.Status); err != nil {
+			s.logger.Error("failed to scan database", "error", err)
+			writeError(w, http.StatusInternalServerError, "unable to load databases")
+			return
+		}
+		if err := json.Unmarshal(publicSourceCIDRsJSON, &database.PublicSourceCIDRs); err != nil {
+			s.logger.Error("failed to decode database source CIDRs", "name", database.Name, "error", err)
 			writeError(w, http.StatusInternalServerError, "unable to load databases")
 			return
 		}
 		populatePostgresConnection(&database)
 		databases = append(databases, database)
+	}
+	if err := rows.Err(); err != nil {
+		s.logger.Error("failed while reading databases", "error", err)
+		writeError(w, http.StatusInternalServerError, "unable to load databases")
+		return
 	}
 	writeJSON(w, http.StatusOK, map[string][]PostgresDatabase{"databases": databases})
 }
@@ -61,6 +76,15 @@ func (s *Server) createPostgresDatabase(w http.ResponseWriter, r *http.Request) 
 	applyPostgresDefaults(&req)
 	if err := validatePostgresRequest(req); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if s.secretCipher == nil {
+		writeError(w, http.StatusServiceUnavailable, "credential encryption is not configured")
+		return
+	}
+	encryptedPassword, err := s.secretCipher.Encrypt(req.Password)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to encrypt database credentials")
 		return
 	}
 	var exists bool
@@ -86,15 +110,15 @@ func (s *Server) createPostgresDatabase(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusBadGateway, "unable to create PostgreSQL resources")
 		return
 	}
-	_, err := s.db.Exec(`
+	_, err = s.db.Exec(`
 		insert into postgres_databases
 			(id, name, namespace, storage_size, version, status, instances, database_name,
 			 owner_name, pooler_enabled, pooler_instances, pool_mode, public, public_hostname,
-			 public_source_cidrs)
-		values ($1::uuid,$2,$3,$4,$5,'provisioning',$6,$7,$8,$9,$10,$11,$12,$13,$14)
+			 public_source_cidrs, password_encrypted)
+		values ($1::uuid,$2,$3,$4,$5,'provisioning',$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
 	`, uuid.NewString(), req.Name, namespace, req.StorageSize, req.Version, req.Instances,
 		req.Database, req.Owner, req.PoolerEnabled, req.PoolerInstances, req.PoolMode,
-		req.Public, req.PublicHostname, req.PublicSourceCIDRs)
+		req.Public, req.PublicHostname, req.PublicSourceCIDRs, encryptedPassword)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
@@ -114,6 +138,57 @@ func (s *Server) createPostgresDatabase(w http.ResponseWriter, r *http.Request) 
 	}
 	populatePostgresConnection(&database)
 	writeJSON(w, http.StatusCreated, database)
+}
+
+func (s *Server) getPostgresCredentials(w http.ResponseWriter, r *http.Request) {
+	if s.db == nil || s.secretCipher == nil {
+		writeError(w, http.StatusServiceUnavailable, "database credentials are not configured")
+		return
+	}
+	var database PostgresDatabase
+	var encryptedPassword *string
+	err := s.db.QueryRow(`
+		select name, namespace, database_name, owner_name, pooler_enabled, public,
+			public_hostname, password_encrypted
+		from postgres_databases where name = $1
+	`, r.PathValue("name")).Scan(&database.Name, &database.Namespace, &database.Database,
+		&database.Owner, &database.PoolerEnabled, &database.Public,
+		&database.PublicHostname, &encryptedPassword)
+	if errors.Is(err, sql.ErrNoRows) {
+		writeError(w, http.StatusNotFound, "database not found")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to load database credentials")
+		return
+	}
+	if encryptedPassword == nil || *encryptedPassword == "" {
+		writeError(w, http.StatusNotFound, "credentials are unavailable for this database")
+		return
+	}
+	password, err := s.secretCipher.Decrypt(*encryptedPassword)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "unable to decrypt database credentials")
+		return
+	}
+	populatePostgresConnection(&database)
+	host := database.Host
+	if database.Public && database.PublicHostname != "" {
+		host = database.PublicHostname
+	}
+	connection := url.URL{
+		Scheme: "postgresql",
+		User:   url.UserPassword(database.Owner, password),
+		Host:   net.JoinHostPort(host, "5432"),
+		Path:   database.Database,
+	}
+	query := connection.Query()
+	query.Set("sslmode", "require")
+	connection.RawQuery = query.Encode()
+	writeJSON(w, http.StatusOK, PostgresCredentials{
+		Host: host, Port: 5432, Database: database.Database, Username: database.Owner,
+		Password: password, URL: connection.String(),
+	})
 }
 
 func applyPostgresDefaults(req *CreatePostgresRequest) {

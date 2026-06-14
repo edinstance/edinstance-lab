@@ -76,8 +76,8 @@ spec:
           port: 53
         - protocol: TCP
           port: 53
-    # Kubernetes API server (reached via the in-cluster service ClusterIP,
-    # which lives in the service CIDR 10.96.0.0/12)
+    # Kubernetes API server, via the in-cluster Service IP. Cilium clusters also
+    # get an explicit kube-apiserver entity allow below.
     - to:
         - ipBlock:
             cidr: 10.96.0.0/12
@@ -95,3 +95,22 @@ spec:
       ports:
         - protocol: TCP
           port: 4317
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-collector-kubernetes-api-egress
+  namespace: opentelemetry
+spec:
+  endpointSelector:
+    matchLabels:
+      app.kubernetes.io/name: opentelemetry-collector
+  egress:
+    - toEntities:
+        - kube-apiserver
+      toPorts:
+        - ports:
+            - port: "443"
+              protocol: TCP
+            - port: "6443"
+              protocol: TCP

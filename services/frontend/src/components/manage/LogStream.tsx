@@ -40,10 +40,10 @@ export function LogStream({ entries }: { entries: Array<LogEntry> }) {
                 className="truncate text-[#aaa2b5] max-[900px]:hidden"
                 title={entry.pod}
               >
-                {shortPodName(entry.pod || entry.container || entry.namespace)}
+                {shortPodName(entry.pod)}
               </span>
               <span className={levelClass(entry.level)}>
-                {entry.level || "log"}
+                {entry.level ?? "log"}
               </span>
               <span className="break-words whitespace-pre-wrap text-[#eee9f3]">
                 {entry.message}
@@ -97,7 +97,9 @@ function countLevels(entries: Array<LogEntry>) {
   );
 }
 
-function formatTime(timestamp: string) {
+function formatTime(timestamp: string | null | undefined) {
+  if (!timestamp) return "Unknown";
+
   const date = new Date(timestamp);
   if (Number.isNaN(date.getTime())) return timestamp;
 

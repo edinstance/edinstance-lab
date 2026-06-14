@@ -45,10 +45,12 @@ export function MetricChart({
   const data = useMemo(
     () =>
       visibleSeries.map((item, index) => ({
-        data: item.values.map(([time, value]) => ({
-          time: new Date(time * 1000),
-          value,
-        })),
+        data: item.values
+          .filter(([time, value]) => isFiniteMetricPoint(time, value))
+          .map(([time, value]) => ({
+            time: new Date(time * 1000),
+            value,
+          })),
         label: shortPodName(item.pod),
         color: chartColors[index % chartColors.length],
       })),
@@ -264,21 +266,38 @@ function formatMetric(value: number, unit: "vCPU" | "bytes") {
   return `${value.toFixed(0)} B`;
 }
 
-function formatTimeLabel(timestamp: Date) {
-  return timestamp.toLocaleTimeString([], {
+function formatTimeLabel(timestamp: unknown) {
+  const date = coerceDate(timestamp);
+  if (!date) return "";
+
+  return date.toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
   });
 }
 
-function formatHoverTime(timestamp: Date) {
-  return timestamp.toLocaleString([], {
+function formatHoverTime(timestamp: unknown) {
+  const date = coerceDate(timestamp);
+  if (!date) return "Unknown time";
+
+  return date.toLocaleString([], {
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
     month: "short",
     timeZoneName: "short",
   });
+}
+
+function coerceDate(value: unknown) {
+  if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
+    return null;
+  }
+  return value;
+}
+
+function isFiniteMetricPoint(time: number, value: number) {
+  return Number.isFinite(time) && Number.isFinite(value);
 }
 
 function getSeriesStyle(

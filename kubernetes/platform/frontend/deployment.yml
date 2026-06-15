@@ -49,7 +49,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: frontend
-          image: ghcr.io/edinstance/edinstance-lab/frontend:sha-3a16e73
+          image: ghcr.io/edinstance/edinstance-lab/frontend:sha-0ea2d26
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -93,7 +93,7 @@ spec:
             - name: OTEL_SERVICE_NAME
               value: platform-frontend
             - name: OTEL_SERVICE_VERSION
-              value: sha-3a16e73
+              value: sha-0ea2d26
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: http://opentelemetry-collector.opentelemetry.svc.cluster.local:4318
             - name: OTEL_TRACES_SAMPLER

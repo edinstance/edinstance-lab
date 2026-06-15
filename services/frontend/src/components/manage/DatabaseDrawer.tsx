@@ -54,6 +54,10 @@ function DatabaseOverview({ database }: { database: PostgresDatabase }) {
 
 function ConnectTab({ database }: { database: PostgresDatabase }) {
   const [visible, setVisible] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<{
+    label: string;
+    state: "copied" | "error";
+  } | null>(null);
   const { data, error, isLoading } = useQuery({
     queryKey: ["database-credentials", database.name],
     queryFn: () => getDatabaseCredentials(database.name),
@@ -62,12 +66,30 @@ function ConnectTab({ database }: { database: PostgresDatabase }) {
   if (isLoading) return <p className="text-[#91899f]">Loading credentials…</p>;
   if (error || !data) return <p className="text-[#ff8d96]">{error instanceof Error ? error.message : "Credentials unavailable"}</p>;
   const rows = [
-    ["Host", data.host], ["Port", String(data.port)], ["Database", data.database],
-    ["Username", data.username], ["Password", visible ? data.password : "••••••••••••"],
-    ["Connection URL", visible ? data.url : "••••••••••••"],
+    { label: "Host", display: data.host, copy: data.host },
+    { label: "Port", display: String(data.port), copy: String(data.port) },
+    { label: "Database", display: data.database, copy: data.database },
+    { label: "Username", display: data.username, copy: data.username },
+    { label: "Password", display: visible ? data.password : "••••••••••••", copy: data.password },
+    { label: "Connection URL", display: visible ? data.url : "••••••••••••", copy: data.url },
   ];
+
+  async function copyToClipboard(label: string, value: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopyStatus({ label, state: "copied" });
+      window.setTimeout(() => setCopyStatus(null), 2000);
+    } catch {
+      setCopyStatus({ label, state: "error" });
+    }
+  }
+
   return <div className="grid gap-4">
     <div className="flex justify-end"><Button variant="outline" onClick={() => setVisible((value) => !value)}>{visible ? "Hide credentials" : "Reveal credentials"}</Button></div>
-    {rows.map(([label, value]) => <div className="rounded-xl border border-[#342e40] p-4" key={label}><div className="mb-2 text-xs font-semibold tracking-[.12em] text-[#91899f] uppercase">{label}</div><div className="flex items-center gap-3"><code className="min-w-0 flex-1 break-all text-sm">{value}</code><Button size="sm" variant="ghost" onClick={() => void navigator.clipboard.writeText(value)}>Copy</Button></div></div>)}
+    <div aria-live="polite" className="min-h-5 text-sm" role="status">
+      {copyStatus?.state === "copied" && <span className="text-[#72d49b]">{copyStatus.label} copied to clipboard.</span>}
+      {copyStatus?.state === "error" && <span className="text-[#ff8d96]">Could not copy {copyStatus.label.toLowerCase()}.</span>}
+    </div>
+    {rows.map(({ label, display, copy }) => <div className="rounded-xl border border-[#342e40] p-4" key={label}><div className="mb-2 text-xs font-semibold tracking-[.12em] text-[#91899f] uppercase">{label}</div><div className="flex items-center gap-3"><code className="min-w-0 flex-1 break-all text-sm">{display}</code><Button size="sm" variant="ghost" onClick={() => void copyToClipboard(label, copy)}>{copyStatus?.state === "copied" && copyStatus.label === label ? "Copied" : "Copy"}</Button></div></div>)}
   </div>;
 }

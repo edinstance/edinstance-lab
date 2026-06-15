@@ -242,10 +242,13 @@ func validatePostgresRequest(req CreatePostgresRequest) error {
 	}
 	if req.Public {
 		if !validHostname(req.PublicHostname) {
-			return errors.New("public hostname must be a valid DNS hostname")
+			return errors.New("local hostname must be a valid DNS hostname")
+		}
+		if !strings.HasSuffix(req.PublicHostname, ".local.edinstance.uk") {
+			return errors.New("local hostname must end with .local.edinstance.uk")
 		}
 		if !req.PoolerEnabled {
-			return errors.New("public access requires PgBouncer")
+			return errors.New("local access requires PgBouncer")
 		}
 		for _, cidr := range req.PublicSourceCIDRs {
 			if _, _, err := net.ParseCIDR(cidr); err != nil {

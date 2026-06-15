@@ -1,5 +1,13 @@
 # Frontend
 
+## Local PostgreSQL access
+
+Databases configured for local exposure receive a MetalLB address on port
+5432 and must use a hostname under `*.local.edinstance.uk`, for example
+`db.local.edinstance.uk`. These PostgreSQL endpoints are available only on the
+local network through split DNS. They are not routed through Envoy HTTP routes
+or Cloudflare Tunnel.
+
 ## Local mock mode
 
 Run the management UI without a Kubernetes cluster, platform API, or auth

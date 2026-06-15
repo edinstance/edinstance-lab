@@ -81,7 +81,7 @@ func (r *Reconciler) postgresPublicService(spec PostgresSpec) *unstructured.Unst
 			"name": spec.Name + "-public", "namespace": spec.Namespace,
 			"annotations": map[string]any{
 				"external-dns.alpha.kubernetes.io/hostname": spec.PublicHostname,
-				"platform.edinstance.uk/exposure":           "public-postgresql",
+				"platform.edinstance.uk/exposure":           "local-postgresql",
 			},
 		},
 		"spec": serviceSpec,

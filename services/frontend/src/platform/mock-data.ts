@@ -93,7 +93,7 @@ let databases: Array<PostgresDatabase> = [
     poolerInstances: 0,
     poolMode: "session",
     public: true,
-    publicHostname: "analytics-db.edinstance.uk",
+    publicHostname: "analytics-db.local.edinstance.uk",
     publicSourceCidrs: ["203.0.113.10/32"],
     host: "analytics-rw.database-analytics.svc.cluster.local",
     credentialsSecret: "analytics-credentials",

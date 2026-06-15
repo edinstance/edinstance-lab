@@ -148,7 +148,7 @@ export function CreateDatabaseModal({
             />
           </Field>
           <Checkbox
-            label="Public through PgBouncer"
+            label="Expose on local network"
             checked={form.public}
             onChange={(e) =>
               state.setDatabaseForm((current) => ({
@@ -158,11 +158,11 @@ export function CreateDatabaseModal({
               }))
             }
           />
-          <Field label="Public hostname">
+          <Field label="Local hostname">
             <Input
               required={form.public}
               disabled={!form.public}
-              placeholder="db.edinstance.uk"
+              placeholder="db.local.edinstance.uk"
               value={form.publicHostname}
               onChange={(e) => update("publicHostname", e.target.value)}
             />
@@ -188,8 +188,9 @@ export function CreateDatabaseModal({
 
           <div className="col-span-4 mt-2 flex flex-wrap items-center justify-between gap-3 border-t border-[#332e3e] pt-5 max-[860px]:col-auto">
             <p className="m-0 max-w-[560px] text-xs leading-5 text-[#91899f]">
-              Public databases get a dedicated MetalLB address on port 5432 and
-              traffic terminates at PgBouncer.
+              Local databases get a dedicated MetalLB address on port 5432.
+              They are available only through local DNS and are not exposed by
+              Cloudflare Tunnel.
             </p>
             <div className="flex gap-3">
               <Button variant="ghost" onClick={onClose}>

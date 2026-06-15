@@ -114,7 +114,7 @@ export function DatabaseSection({
           />
         </Field>
         <Checkbox
-          label="Public through PgBouncer"
+          label="Expose on local network"
           checked={form.public}
           onChange={(e) =>
             state.setDatabaseForm((current) => ({
@@ -124,11 +124,11 @@ export function DatabaseSection({
             }))
           }
         />
-        <Field label="Public hostname">
+        <Field label="Local hostname">
           <Input
             required={form.public}
             disabled={!form.public}
-            placeholder="db.edinstance.uk"
+            placeholder="db.local.edinstance.uk"
             value={form.publicHostname}
             onChange={(e) => update("publicHostname", e.target.value)}
           />
@@ -157,8 +157,9 @@ export function DatabaseSection({
       </form>
       {form.public ? (
         <p className="m-0 border-t border-[#c9c1af] px-4 py-3 font-mono text-xs font-bold text-[#b0822e]">
-          Creates a dedicated MetalLB address on port 5432. Public traffic
-          always terminates at PgBouncer.
+          Creates a dedicated local MetalLB address on port 5432. This is only
+          reachable through local DNS and is not exposed through Cloudflare
+          Tunnel.
         </p>
       ) : null}
       {state.databases.length ? (
@@ -177,7 +178,7 @@ export function DatabaseSection({
               </code>
               {database.public ? (
                 <code className="text-[#d65236]">
-                  Public: {database.publicHostname}:5432 · allow{" "}
+                  Local: {database.publicHostname}:5432 · allow{" "}
                   {database.publicSourceCidrs?.length
                     ? database.publicSourceCidrs.join(", ")
                     : "all sources"}

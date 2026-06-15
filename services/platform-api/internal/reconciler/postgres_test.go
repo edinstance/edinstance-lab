@@ -6,7 +6,7 @@ func TestPostgresPublicServiceTargetsPooler(t *testing.T) {
 	r := &Reconciler{}
 	service := r.postgresPublicService(PostgresSpec{
 		Name: "customer-db", Namespace: "apps", PoolerEnabled: true,
-		PublicHostname: "db.edinstance.uk", PublicSourceCIDRs: []string{"203.0.113.10/32"},
+		PublicHostname: "db.local.edinstance.uk", PublicSourceCIDRs: []string{"203.0.113.10/32"},
 	})
 
 	selector, found, err := unstructuredNestedStringMap(service.Object, "spec", "selector")

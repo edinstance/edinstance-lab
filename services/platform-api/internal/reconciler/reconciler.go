@@ -139,7 +139,27 @@ func (r *Reconciler) RefreshAllStatuses(ctx context.Context) error {
 			return err
 		}
 	}
-	return rows.Err()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	postgresRows, err := r.db.QueryContext(ctx, "select name, pooler_enabled from postgres_databases order by name asc")
+	if err != nil {
+		return fmt.Errorf("list postgres databases for status refresh: %w", err)
+	}
+	defer postgresRows.Close()
+
+	for postgresRows.Next() {
+		var name string
+		var poolerEnabled bool
+		if err := postgresRows.Scan(&name, &poolerEnabled); err != nil {
+			return err
+		}
+		if err := r.RefreshPostgresStatus(ctx, name, poolerEnabled); err != nil {
+			return err
+		}
+	}
+	return postgresRows.Err()
 }
 
 func (r *Reconciler) RefreshAppStatus(ctx context.Context, name string) error {
@@ -155,6 +175,20 @@ func (r *Reconciler) RefreshAppStatus(ctx context.Context, name string) error {
 				when $1 = 'ready' then 'ready'
 				else reconcile_state
 			end,
+			updated_at = now()
+		where name = $2
+	`, status, name)
+	return err
+}
+
+func (r *Reconciler) RefreshPostgresStatus(ctx context.Context, name string, poolerEnabled bool) error {
+	status, err := r.postgresStatus(ctx, name, poolerEnabled)
+	if err != nil {
+		return err
+	}
+	_, err = r.db.ExecContext(ctx, `
+		update postgres_databases
+		set status = $1,
 			updated_at = now()
 		where name = $2
 	`, status, name)

@@ -18,6 +18,13 @@ import (
 
 var storageSizePattern = regexp.MustCompile(`^[1-9][0-9]*(Gi|Ti)$`)
 
+var reservedPostgresOwners = map[string]struct{}{
+	"cnpg_metrics_exporter": {},
+	"cnpg_pooler_pgbouncer": {},
+	"postgres":              {},
+	"streaming_replica":     {},
+}
+
 func (s *Server) listPostgresDatabases(w http.ResponseWriter, _ *http.Request) {
 	if s.db == nil {
 		writeError(w, http.StatusServiceUnavailable, "database storage is not configured")
@@ -250,6 +257,9 @@ func validatePostgresRequest(req CreatePostgresRequest) error {
 	}
 	if !appNamePattern.MatchString(req.Database) || !appNamePattern.MatchString(req.Owner) {
 		return errors.New("database and owner must be lowercase DNS-safe names")
+	}
+	if _, reserved := reservedPostgresOwners[req.Owner]; reserved || strings.HasPrefix(req.Owner, "cnpg_") {
+		return errors.New("owner must not use a reserved PostgreSQL role")
 	}
 	if len(req.Password) < 12 {
 		return errors.New("password must be at least 12 characters")

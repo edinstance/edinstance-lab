@@ -3,4 +3,3 @@ kind: Kustomization
 resources:
   - gatewayclass.yml
   - gateway.yml
-  - postgres-route.yml

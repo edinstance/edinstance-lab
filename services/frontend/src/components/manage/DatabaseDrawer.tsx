@@ -10,9 +10,13 @@ type DatabaseTab = "overview" | "connect";
 export function DatabaseDrawer({
   database,
   onClose,
+  onDelete,
+  busy,
 }: {
   database: PostgresDatabase;
   onClose: () => void;
+  onDelete: () => void;
+  busy: boolean;
 }) {
   const [tab, setTab] = useState<DatabaseTab>("overview");
   return (
@@ -33,13 +37,21 @@ export function DatabaseDrawer({
         </nav>
       </header>
       <div className="flex-1 overflow-y-auto p-8 max-[640px]:p-5">
-        {tab === "overview" ? <DatabaseOverview database={database} /> : <ConnectTab database={database} />}
+        {tab === "overview" ? <DatabaseOverview database={database} onDelete={onDelete} busy={busy} /> : <ConnectTab database={database} />}
       </div>
     </aside>
   );
 }
 
-function DatabaseOverview({ database }: { database: PostgresDatabase }) {
+function DatabaseOverview({
+  database,
+  onDelete,
+  busy,
+}: {
+  database: PostgresDatabase;
+  onDelete: () => void;
+  busy: boolean;
+}) {
   const facts = {
     Status: database.status,
     Version: database.version,
@@ -49,7 +61,20 @@ function DatabaseOverview({ database }: { database: PostgresDatabase }) {
     Storage: database.storageSize,
     Pooler: database.poolerEnabled ? `${database.poolerInstances} (${database.poolMode})` : "disabled",
   };
-  return <dl className="grid grid-cols-[140px_1fr] gap-4 rounded-xl border border-[#342e40] p-5 text-sm">{Object.entries(facts).map(([label, value]) => <div className="contents" key={label}><dt className="text-[#91899f]">{label}</dt><dd className="m-0 font-mono">{value}</dd></div>)}</dl>;
+  return (
+    <div className="grid gap-4">
+      <dl className="grid grid-cols-[140px_1fr] gap-4 rounded-xl border border-[#342e40] p-5 text-sm">{Object.entries(facts).map(([label, value]) => <div className="contents" key={label}><dt className="text-[#91899f]">{label}</dt><dd className="m-0 font-mono">{value}</dd></div>)}</dl>
+      <section className="rounded-xl border border-[#6b3038] bg-[#241116] p-5">
+        <h3 className="m-0 text-lg font-semibold text-[#ffadb3]">Delete database</h3>
+        <p className="mt-2 mb-5 text-sm text-[#b99095]">
+          Destroys the PostgreSQL cluster, pooler, public service, and credentials secret. This deletes all stored data.
+        </p>
+        <Button disabled={busy} onClick={onDelete} variant="destructive">
+          {busy ? "Deleting…" : `Delete ${database.name}`}
+        </Button>
+      </section>
+    </div>
+  );
 }
 
 function ConnectTab({ database }: { database: PostgresDatabase }) {

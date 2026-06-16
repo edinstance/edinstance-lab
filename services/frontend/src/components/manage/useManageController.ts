@@ -5,6 +5,7 @@ import {
   createApp,
   createDatabase,
   deleteApp,
+  deleteDatabase,
   deleteEnvVar,
   getEnvVar,
   getSession,
@@ -69,6 +70,7 @@ export function useManageController() {
   );
   const [saving, setSaving] = useState(false);
   const [busyApp, setBusyApp] = useState<string | null>(null);
+  const [busyDatabase, setBusyDatabase] = useState<string | null>(null);
   const [envApp, setEnvApp] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -216,6 +218,29 @@ export function useManageController() {
       return false;
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function removeDatabase(database: PostgresDatabase) {
+    if (
+      !window.confirm(
+        `Delete ${database.name}? This destroys the PostgreSQL cluster and its data.`,
+      )
+    )
+      return;
+    setBusyDatabase(database.name);
+    setError(null);
+    setNotice(null);
+    try {
+      await deleteDatabase(database.name);
+      setNotice(`${database.name} deleted`);
+      await refreshTopology();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Unable to delete database",
+      );
+    } finally {
+      setBusyDatabase(null);
     }
   }
 
@@ -443,6 +468,7 @@ export function useManageController() {
         : null),
     notice,
     busyApp,
+    busyDatabase,
     envApp,
     envVars,
     form,
@@ -456,6 +482,7 @@ export function useManageController() {
     state,
     createAppFromForm,
     createDatabaseFromForm,
+    removeDatabase,
     removeApp,
     redeploy,
     importEnv,

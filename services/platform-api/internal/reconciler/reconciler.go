@@ -161,6 +161,27 @@ func (r *Reconciler) RefreshAppStatus(ctx context.Context, name string) error {
 	return err
 }
 
+func (r *Reconciler) DeletePostgres(ctx context.Context, name string) error {
+	resources := []struct {
+		gvr       schema.GroupVersionResource
+		namespace string
+		name      string
+	}{
+		{schema.GroupVersionResource{Group: "", Version: "v1", Resource: "services"}, r.cfg.AppsNamespace, name + "-public"},
+		{schema.GroupVersionResource{Group: "postgresql.cnpg.io", Version: "v1", Resource: "poolers"}, r.cfg.AppsNamespace, name + "-pooler-rw"},
+		{schema.GroupVersionResource{Group: "postgresql.cnpg.io", Version: "v1", Resource: "databases"}, r.cfg.AppsNamespace, name + "-database"},
+		{schema.GroupVersionResource{Group: "postgresql.cnpg.io", Version: "v1", Resource: "clusters"}, r.cfg.AppsNamespace, name},
+		{schema.GroupVersionResource{Group: "", Version: "v1", Resource: "secrets"}, r.cfg.AppsNamespace, name + "-app"},
+	}
+	for _, resource := range resources {
+		err := r.client.Resource(resource.gvr).Namespace(resource.namespace).Delete(ctx, resource.name, metav1.DeleteOptions{})
+		if err != nil && !apierrors.IsNotFound(err) {
+			return fmt.Errorf("delete %s/%s: %w", resource.gvr.Resource, resource.name, err)
+		}
+	}
+	return nil
+}
+
 func (r *Reconciler) DeleteApp(ctx context.Context, name string) error {
 	resources := []struct {
 		gvr       schema.GroupVersionResource

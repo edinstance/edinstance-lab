@@ -42,6 +42,7 @@ export interface ManageState {
   error: string | null;
   notice: string | null;
   busyApp: string | null;
+  busyDatabase: string | null;
   envApp: string | null;
   envVars: Record<string, Array<EnvVariable>>;
   form: AppForm;

@@ -160,6 +160,8 @@ function ManagePage() {
         <DatabaseDrawer
           database={selectedDatabase}
           onClose={() => setSelectedName(null)}
+          busy={controller.state.busyDatabase === selectedDatabase.name}
+          onDelete={() => void controller.removeDatabase(selectedDatabase)}
         />
       ) : selectedPlatformNode ? (
         <PlatformNodeDrawer

@@ -4,6 +4,7 @@ import {
   mockCreateApp,
   mockCreateDatabase,
   mockDeleteApp,
+  mockDeleteDatabase,
   mockDeleteEnvVar,
   mockGetAppLogs,
   mockGetAppMetrics,
@@ -425,6 +426,21 @@ export async function getDatabaseCredentials(
     throw new Error(await readError(response, "Unable to load database credentials"));
   }
   return response.json() as Promise<PostgresCredentials>;
+}
+
+export async function deleteDatabase(name: string): Promise<void> {
+  if (env.mockPlatform) return mockDeleteDatabase(name);
+
+  const response = await apiFetch(
+    `${apiBase}/api/databases/${encodeURIComponent(name)}`,
+    {
+      method: "DELETE",
+      headers: await authHeaders(),
+    },
+  );
+  if (!response.ok) {
+    throw new Error(await readError(response, "Unable to delete database"));
+  }
 }
 
 async function authHeaders(): Promise<Record<string, string>> {

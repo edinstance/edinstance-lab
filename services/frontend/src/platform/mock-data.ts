@@ -170,6 +170,10 @@ export function mockDeleteApp(name: string): void {
   apps = apps.filter((app) => app.name !== name);
 }
 
+export function mockDeleteDatabase(name: string): void {
+  databases = databases.filter((database) => database.name !== name);
+}
+
 export function mockRedeployApp(name: string): void {
   apps = apps.map((app) =>
     app.name === name

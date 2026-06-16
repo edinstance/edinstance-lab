@@ -191,6 +191,35 @@ func (s *Server) getPostgresCredentials(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
+func (s *Server) deletePostgresDatabase(w http.ResponseWriter, r *http.Request) {
+	if s.db == nil || s.reconciler == nil {
+		writeError(w, http.StatusServiceUnavailable, "database reconciliation is not configured")
+		return
+	}
+	name := r.PathValue("name")
+	var exists bool
+	if err := s.db.QueryRow("select exists(select 1 from postgres_databases where name = $1)", name).Scan(&exists); err != nil {
+		s.logger.Error("failed to check database", "name", name, "error", err)
+		writeError(w, http.StatusInternalServerError, "unable to delete database")
+		return
+	}
+	if !exists {
+		writeError(w, http.StatusNotFound, "database not found")
+		return
+	}
+	if err := s.reconciler.DeletePostgres(r.Context(), name); err != nil {
+		s.logger.Error("failed to delete postgres resources", "name", name, "error", err)
+		writeError(w, http.StatusBadGateway, "unable to delete PostgreSQL resources")
+		return
+	}
+	if _, err := s.db.Exec("delete from postgres_databases where name = $1", name); err != nil {
+		s.logger.Error("failed to delete database record", "name", name, "error", err)
+		writeError(w, http.StatusInternalServerError, "unable to delete database")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+}
+
 func applyPostgresDefaults(req *CreatePostgresRequest) {
 	if req.Database == "" {
 		req.Database = "app"

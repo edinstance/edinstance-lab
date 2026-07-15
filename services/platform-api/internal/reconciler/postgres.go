@@ -55,7 +55,7 @@ func (r *Reconciler) postgresPooler(spec PostgresSpec) *unstructured.Unstructure
 			"monitoring": map[string]any{"enablePodMonitor": true},
 			"pgbouncer": map[string]any{
 				"poolMode":   spec.PoolMode,
-				"parameters": map[string]any{"max_client_conn": "1000", "default_pool_size": "20"},
+				"parameters": map[string]any{"max_client_conn": "1000", "default_pool_size": "40"},
 			},
 		},
 	}}
